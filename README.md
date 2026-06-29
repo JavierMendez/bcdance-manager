@@ -1,42 +1,83 @@
-# sv
+# BC Dance Manager
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Aplicación de gestión para BC Dance, construida con SvelteKit.
 
-## Creating a project
+## Requisitos
 
-If you're seeing this, you've probably already done this step. Congrats!
+- Node.js 22+
+- pnpm 9+
+- Docker (opcional)
 
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+## Desarrollo local
 
 ```sh
-# recreate this project
-npx sv@0.16.1 create --template minimal --types ts --add tailwindcss="plugins:none" --install npm .
+pnpm install
+cp .env.example .env
+pnpm dev
 ```
 
-## Developing
+## Docker
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### Desarrollo
+
+Levanta la app en modo desarrollo con hot-reload y PostgreSQL:
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+cp .env.example .env
+pnpm docker:up
 ```
 
-## Building
-
-To create a production version of your app:
+- App: http://localhost:5173
+- Migraciones: `docker compose exec app pnpm db:migrate`
 
 ```sh
-npm run build
+pnpm docker:logs   # ver logs
+pnpm docker:down   # detener
 ```
 
-You can preview the production build with `npm run preview`.
+### Producción
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Construye y publica la aplicación en Docker (build optimizado + migraciones automáticas):
+
+```sh
+cp .env.example .env
+pnpm docker:prod:up
+```
+
+- App: http://localhost:3000
+- Las migraciones se ejecutan al iniciar el contenedor
+
+```sh
+pnpm docker:prod:logs   # ver logs
+pnpm docker:prod:down   # detener
+```
+
+### Solo base de datos
+
+```sh
+pnpm docker:db
+```
+
+Usa `DATABASE_URL=postgresql://bcdance:bcdance@localhost:5432/bcdance_manager` en `.env`.
+
+## Build
+
+```sh
+pnpm build
+pnpm preview
+```
+
+## Solución de problemas
+
+### `Cannot find native binding` (rolldown / esbuild)
+
+Suele ocurrir si `node_modules` se instaló dentro de Docker (Linux) y luego ejecutas `pnpm dev` en macOS. Las dependencias nativas son distintas por plataforma.
+
+**Solución:** reinstala en tu máquina local:
+
+```sh
+rm -rf node_modules
+pnpm install
+```
+
+No ejecutes `pnpm install` montando el proyecto en un contenedor Docker si vas a desarrollar en local. Usa `pnpm docker:up` para desarrollo en Docker (tiene su propio volumen de `node_modules`).
