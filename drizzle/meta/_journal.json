@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782755043289,
+      "tag": "0000_daffy_slayback",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782756043289,
+      "tag": "0001_update_students_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782757043289,
+      "tag": "0002_add_courses",
+      "breakpoints": true
+    }
+  ]
+}

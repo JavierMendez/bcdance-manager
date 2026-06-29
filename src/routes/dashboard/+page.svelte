@@ -1,12 +1,8 @@
-<script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
-</script>
-
-<main class="flex min-h-svh flex-col items-center justify-center gap-6 p-8">
-	<div class="text-center">
-		<h1 class="text-4xl font-bold tracking-tight">Dashboard</h1>
-		<p class="text-muted-foreground mt-2 text-lg">BC Dance Manager</p>
+<div class="flex flex-1 flex-col gap-4">
+	<div class="grid auto-rows-min gap-4 md:grid-cols-3">
+		<div class="bg-muted/50 aspect-video rounded-xl"></div>
+		<div class="bg-muted/50 aspect-video rounded-xl"></div>
+		<div class="bg-muted/50 aspect-video rounded-xl"></div>
 	</div>
-
-	<Button href="/login-04" variant="outline">Cerrar sesión</Button>
-</main>
+	<div class="bg-muted/50 min-h-[50vh] flex-1 rounded-xl md:min-h-min"></div>
+</div>
