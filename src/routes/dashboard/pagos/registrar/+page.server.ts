@@ -1,0 +1,195 @@
+import { fail, redirect } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { getDb } from '$lib/server/db/index.js';
+import {
+	courses,
+	paymentItems,
+	paymentPlans,
+	payments,
+	studentEntitlements,
+	students
+} from '$lib/server/db/schema/index.js';
+import type { BillingPeriod } from '$lib/payment-plans.js';
+import type { PlanType } from '$lib/payment-plans.js';
+import {
+	addOneMonth,
+	calculateWizardTotal,
+	FULL_PASS_DEFAULT_HOURS,
+	PAYMENT_METHODS,
+	validatePaymentWizard,
+	type PaymentMethod,
+	type PurchaseType,
+	type WizardCourse,
+	type WizardPaymentPlan,
+	type WizardStudent
+} from '$lib/payments.js';
+import type { Actions, PageServerLoad } from './$types.js';
+
+function parseWizardForm(formData: FormData) {
+	return {
+		studentId: String(formData.get('studentId') ?? ''),
+		purchaseType: String(formData.get('purchaseType') ?? '') as PurchaseType,
+		courseId: String(formData.get('courseId') ?? ''),
+		monthlyPlanId: String(formData.get('monthlyPlanId') ?? ''),
+		fullPassPlanId: String(formData.get('fullPassPlanId') ?? ''),
+		paymentMethod: String(formData.get('paymentMethod') ?? '') as PaymentMethod,
+		paidAt: String(formData.get('paidAt') ?? ''),
+		notes: String(formData.get('notes') ?? '').trim()
+	};
+}
+
+export const load: PageServerLoad = async () => {
+	const db = getDb();
+
+	const [studentRows, courseRows, planRows] = await Promise.all([
+		db
+			.select({
+				id: students.id,
+				fullName: students.fullName,
+				email: students.email
+			})
+			.from(students)
+			.where(eq(students.active, true)),
+		db.select({ id: courses.id, name: courses.name }).from(courses),
+		db.select().from(paymentPlans)
+	]);
+
+	return {
+		students: studentRows as WizardStudent[],
+		courses: courseRows as WizardCourse[],
+		plans: planRows.map((plan) => ({
+			id: plan.id,
+			name: plan.name,
+			description: plan.description,
+			planType: plan.planType as PlanType,
+			price: plan.price,
+			billingPeriod: plan.billingPeriod as BillingPeriod,
+			classesIncluded: plan.classesIncluded,
+			hoursIncluded: plan.hoursIncluded
+		})) satisfies WizardPaymentPlan[],
+		paymentMethods: PAYMENT_METHODS
+	};
+};
+
+export const actions: Actions = {
+	register: async ({ request }) => {
+		const formData = await request.formData();
+		const wizardData = parseWizardForm(formData);
+		const db = getDb();
+
+		const planRows = await db.select().from(paymentPlans);
+		const courseRows = await db.select({ id: courses.id, name: courses.name }).from(courses);
+
+		const plans: WizardPaymentPlan[] = planRows.map((plan) => ({
+			id: plan.id,
+			name: plan.name,
+			description: plan.description,
+			planType: plan.planType as PlanType,
+			price: plan.price,
+			billingPeriod: plan.billingPeriod as BillingPeriod,
+			classesIncluded: plan.classesIncluded,
+			hoursIncluded: plan.hoursIncluded
+		}));
+
+		const coursesList: WizardCourse[] = courseRows.map((course) => ({
+			id: course.id,
+			name: course.name
+		}));
+
+		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId } = validatePaymentWizard(
+			wizardData,
+			plans,
+			coursesList
+		);
+
+		if (Object.keys(errors).length > 0) {
+			return fail(400, { errors, values: wizardData });
+		}
+
+		const [student] = await db
+			.select({ id: students.id, fullName: students.fullName })
+			.from(students)
+			.where(eq(students.id, studentId))
+			.limit(1);
+
+		if (!student) {
+			return fail(400, { errors: { studentId: 'El alumno no existe.' }, values: wizardData });
+		}
+
+		const purchaseType = wizardData.purchaseType;
+		const totalAmount = calculateWizardTotal(purchaseType, plans, monthlyPlanId, fullPassPlanId);
+		const paidAt = new Date(wizardData.paidAt);
+		const startsAt = paidAt;
+
+		const monthlyPlan = plans.find((plan) => plan.id === monthlyPlanId);
+		const fullPassPlan = plans.find((plan) => plan.id === fullPassPlanId);
+		const course = coursesList.find((entry) => entry.id === courseId);
+
+		await db.transaction(async (tx) => {
+			const [payment] = await tx
+				.insert(payments)
+				.values({
+					studentId,
+					purchaseType,
+					totalAmount,
+					paymentMethod: wizardData.paymentMethod,
+					notes: wizardData.notes || null,
+					paidAt
+				})
+				.returning();
+
+			if (purchaseType === 'monthly_only' || purchaseType === 'combined') {
+				if (!monthlyPlan || !course) {
+					throw new Error('Missing monthly plan data');
+				}
+
+				await tx.insert(paymentItems).values({
+					paymentId: payment.id,
+					itemType: 'monthly_plan',
+					paymentPlanId: monthlyPlan.id,
+					courseId: course.id,
+					amount: monthlyPlan.price
+				});
+
+				await tx.insert(studentEntitlements).values({
+					studentId,
+					paymentId: payment.id,
+					entitlementType: 'monthly_plan',
+					paymentPlanId: monthlyPlan.id,
+					courseId: course.id,
+					startsAt,
+					endsAt: addOneMonth(startsAt),
+					active: true
+				});
+			}
+
+			if (purchaseType === 'full_pass_only' || purchaseType === 'combined') {
+				if (!fullPassPlan) {
+					throw new Error('Missing full pass plan data');
+				}
+
+				const hoursGranted = fullPassPlan.hoursIncluded ?? FULL_PASS_DEFAULT_HOURS;
+
+				await tx.insert(paymentItems).values({
+					paymentId: payment.id,
+					itemType: 'full_pass',
+					paymentPlanId: fullPassPlan.id,
+					amount: fullPassPlan.price,
+					hoursGranted
+				});
+
+				await tx.insert(studentEntitlements).values({
+					studentId,
+					paymentId: payment.id,
+					entitlementType: 'full_pass',
+					paymentPlanId: fullPassPlan.id,
+					hoursRemaining: hoursGranted,
+					startsAt,
+					active: true
+				});
+			}
+		});
+
+		redirect(303, '/dashboard/pagos');
+	}
+};

@@ -5,6 +5,7 @@ export type SerializedStudent = {
 	email: string;
 	enrolledAt: string;
 	active: boolean;
+	paymentStatus: import('$lib/payments.js').PaymentStatus;
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

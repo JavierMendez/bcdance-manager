@@ -2,14 +2,17 @@
 	import type { Component } from 'svelte';
 	import HomeIcon from '@lucide/svelte/icons/house';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import WalletIcon from '@lucide/svelte/icons/wallet';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
+	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import Music2Icon from '@lucide/svelte/icons/music-2';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 
 	export type NavSubItem = {
 		title: string;
 		url: string;
+		icon: Component;
 	};
 
 	export type NavItem = {
@@ -22,15 +25,27 @@
 	export const navItems = [
 		{ title: 'Inicio', url: '/dashboard', icon: HomeIcon },
 		{ title: 'Alumnos', url: '/dashboard/alumnos', icon: UsersIcon },
+		{ title: 'Pagos', url: '/dashboard/pagos', icon: WalletIcon },
 		{
 			title: 'Configuraciones',
 			url: '/dashboard/configuraciones',
 			icon: SettingsIcon,
-			items: [{ title: 'Cursos', url: '/dashboard/configuraciones/cursos' }]
+			items: [
+				{ title: 'Cursos', url: '/dashboard/configuraciones/cursos', icon: BookOpenIcon },
+				{
+					title: 'Planes de pago',
+					url: '/dashboard/configuraciones/planes-de-pago',
+					icon: CreditCardIcon
+				}
+			]
 		}
 	] satisfies readonly NavItem[];
 
 	export function getBreadcrumb(pathname: string) {
+		if (pathname === '/dashboard/pagos/registrar') {
+			return { section: 'Pagos', page: 'Registrar pago' };
+		}
+
 		for (const item of navItems) {
 			if (item.url === pathname) {
 				return { section: item.title, page: item.title };
@@ -105,7 +120,7 @@
 										<Sidebar.MenuSubButton isActive={page.url.pathname === subItem.url}>
 											{#snippet child({ props })}
 												<a href={subItem.url} {...props}>
-													<BookOpenIcon />
+													<subItem.icon />
 													<span>{subItem.title}</span>
 												</a>
 											{/snippet}

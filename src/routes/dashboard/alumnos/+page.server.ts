@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
-import { students } from '$lib/server/db/schema/index.js';
+import { studentEntitlements, students } from '$lib/server/db/schema/index.js';
+import { resolvePaymentStatus } from '$lib/payments.js';
 import { validateStudentInput, type SerializedStudent } from '$lib/students.js';
 import type { Actions, PageServerLoad } from './$types.js';
 
@@ -14,23 +15,56 @@ function isUniqueViolation(error: unknown) {
 	);
 }
 
-function serializeStudent(student: typeof students.$inferSelect): SerializedStudent {
+function serializeStudent(
+	student: typeof students.$inferSelect,
+	paymentStatus: SerializedStudent['paymentStatus']
+): SerializedStudent {
 	return {
 		id: student.id,
 		fullName: student.fullName,
 		phone: student.phone,
 		email: student.email,
 		enrolledAt: student.enrolledAt.toISOString(),
-		active: student.active
+		active: student.active,
+		paymentStatus
 	};
+}
+
+async function getPaymentStatusForStudent(
+	db: ReturnType<typeof getDb>,
+	studentId: number
+): Promise<SerializedStudent['paymentStatus']> {
+	const entitlements = await db
+		.select()
+		.from(studentEntitlements)
+		.where(
+			and(eq(studentEntitlements.studentId, studentId), eq(studentEntitlements.active, true))
+		);
+
+	return resolvePaymentStatus(entitlements);
 }
 
 export const load: PageServerLoad = async () => {
 	const db = getDb();
-	const rows = await db.select().from(students).orderBy(desc(students.enrolledAt));
+	const [rows, entitlementRows] = await Promise.all([
+		db.select().from(students).orderBy(desc(students.enrolledAt)),
+		db.select().from(studentEntitlements).where(eq(studentEntitlements.active, true))
+	]);
+
+	const entitlementsByStudent = new Map<number, typeof entitlementRows>();
+	for (const entitlement of entitlementRows) {
+		const current = entitlementsByStudent.get(entitlement.studentId) ?? [];
+		current.push(entitlement);
+		entitlementsByStudent.set(entitlement.studentId, current);
+	}
 
 	return {
-		students: rows.map(serializeStudent)
+		students: rows.map((student) =>
+			serializeStudent(
+				student,
+				resolvePaymentStatus(entitlementsByStudent.get(student.id) ?? [])
+			)
+		)
 	};
 };
 
@@ -60,7 +94,7 @@ export const actions: Actions = {
 				})
 				.returning();
 
-			return { success: true, mode: 'create' as const, student: serializeStudent(created) };
+			return { success: true, mode: 'create' as const, student: serializeStudent(created, 'vencido') };
 		} catch (error) {
 			if (isUniqueViolation(error)) {
 				return fail(400, {
@@ -110,7 +144,11 @@ export const actions: Actions = {
 				return fail(404, { message: 'Alumno no encontrado.' });
 			}
 
-			return { success: true, mode: 'edit' as const, student: serializeStudent(updated) };
+			return {
+				success: true,
+				mode: 'edit' as const,
+				student: serializeStudent(updated, await getPaymentStatusForStudent(db, id))
+			};
 		} catch (error) {
 			if (isUniqueViolation(error)) {
 				return fail(400, {
@@ -146,6 +184,9 @@ export const actions: Actions = {
 			return fail(404, { message: 'Alumno no encontrado.' });
 		}
 
-		return { success: true, student: serializeStudent(updated) };
+		return {
+			success: true,
+			student: serializeStudent(updated, await getPaymentStatusForStudent(db, id))
+		};
 	}
 };

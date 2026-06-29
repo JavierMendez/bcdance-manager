@@ -4,6 +4,10 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
+	import {
+		getPaymentStatusBadgeVariant,
+		PAYMENT_STATUS_LABELS
+	} from '$lib/payments.js';
 	import { formatEnrollmentDate, type SerializedStudent } from '$lib/students.js';
 	import { enhance } from '$app/forms';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -29,7 +33,7 @@
 			optimisticStudents = [updated, ...current];
 		} else {
 			optimisticStudents = current.map((student) =>
-				student.id === updated.id ? updated : student
+				student.id === updated.id ? { ...student, ...updated } : student
 			);
 		}
 	}
@@ -80,13 +84,14 @@
 					<Table.Head>Correo electrónico</Table.Head>
 					<Table.Head>Fecha de inscripción</Table.Head>
 					<Table.Head>Estado</Table.Head>
+					<Table.Head>Pago</Table.Head>
 					<Table.Head class="text-end">Acciones</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#if displayedStudents.length === 0}
 					<Table.Row>
-						<Table.Cell colspan={6} class="text-muted-foreground h-24 text-center">
+						<Table.Cell colspan={7} class="text-muted-foreground h-24 text-center">
 							No hay alumnos registrados.
 						</Table.Cell>
 					</Table.Row>
@@ -100,6 +105,11 @@
 							<Table.Cell>
 								<Badge variant={student.active ? 'default' : 'secondary'}>
 									{student.active ? 'Activo' : 'Inactivo'}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								<Badge variant={getPaymentStatusBadgeVariant(student.paymentStatus)}>
+									{PAYMENT_STATUS_LABELS[student.paymentStatus]}
 								</Badge>
 							</Table.Cell>
 							<Table.Cell>
@@ -119,7 +129,7 @@
 													const updated = result.data.student as SerializedStudent;
 													const current = optimisticStudents ?? students;
 													optimisticStudents = current.map((item) =>
-														item.id === updated.id ? updated : item
+														item.id === updated.id ? { ...item, ...updated } : item
 													);
 												}
 											};
