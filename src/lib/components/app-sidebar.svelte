@@ -3,6 +3,7 @@
 	import HomeIcon from '@lucide/svelte/icons/house';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import WalletIcon from '@lucide/svelte/icons/wallet';
+	import LayersIcon from '@lucide/svelte/icons/layers';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
@@ -25,6 +26,7 @@
 	export const navItems = [
 		{ title: 'Inicio', url: '/dashboard', icon: HomeIcon },
 		{ title: 'Alumnos', url: '/dashboard/alumnos', icon: UsersIcon },
+		{ title: 'Grupos', url: '/dashboard/grupos', icon: LayersIcon },
 		{ title: 'Pagos', url: '/dashboard/pagos', icon: WalletIcon },
 		{
 			title: 'Configuraciones',
