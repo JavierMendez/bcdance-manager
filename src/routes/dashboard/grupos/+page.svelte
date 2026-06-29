@@ -14,6 +14,7 @@
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import type { PageData } from './$types.js';
 
 	let { data }: { data: PageData } = $props();
@@ -30,10 +31,16 @@
 				Consulta los cursos activos, sus horarios y los alumnos inscritos por modalidad.
 			</p>
 		</div>
-		<Button variant="outline" href="/dashboard/configuraciones/cursos">
-			<BookOpenIcon data-icon="inline-start" />
-			Gestionar cursos
-		</Button>
+		<div class="flex flex-wrap gap-2">
+			<Button href="/dashboard/grupos/asistencia">
+				<CalendarCheckIcon data-icon="inline-start" />
+				Registrar asistencia
+			</Button>
+			<Button variant="outline" href="/dashboard/configuraciones/cursos">
+				<BookOpenIcon data-icon="inline-start" />
+				Gestionar cursos
+			</Button>
+		</div>
 	</div>
 
 	<div class="grid gap-4 sm:grid-cols-3">
@@ -86,6 +93,12 @@
 									</div>
 									<Card.Description>{group.description}</Card.Description>
 								</div>
+								<Button
+									size="sm"
+									href="/dashboard/grupos/asistencia?courseId={group.id}"
+								>
+									Registrar asistencia
+								</Button>
 							</div>
 						</Card.Header>
 						<Card.Content class="flex flex-col gap-4">

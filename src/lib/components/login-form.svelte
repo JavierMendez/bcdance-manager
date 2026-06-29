@@ -28,7 +28,14 @@
 		<Card.Content class="grid p-0 md:grid-cols-2">
 			<form class="p-6 md:p-8" onsubmit={handleSubmit}>
 				<FieldGroup>
-					<div class="flex flex-col items-center gap-2 text-center">
+					<div class="flex flex-col items-center gap-3 text-center">
+						<div class="w-full overflow-hidden rounded-xl md:hidden">
+							<img
+								src="/images/bc-dance-studio-logo.jpg"
+								alt="BC Dance Studio"
+								class="aspect-square size-full object-cover"
+							/>
+						</div>
 						<h1 class="text-2xl font-bold">Bienvenido</h1>
 						<p class="text-muted-foreground text-balance">
 							Inicia sesión en BC Dance Manager
@@ -87,11 +94,11 @@
 					</FieldDescription>
 				</FieldGroup>
 			</form>
-			<div class="bg-muted relative hidden md:block">
+			<div class="relative hidden min-h-full md:block">
 				<img
-					src="/placeholder.svg"
-					alt="placeholder"
-					class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+					src="/images/bc-dance-studio-logo.jpg"
+					alt="BC Dance Studio"
+					class="absolute inset-0 size-full object-cover"
 				/>
 			</div>
 		</Card.Content>

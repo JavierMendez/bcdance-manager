@@ -44,6 +44,10 @@
 	] satisfies readonly NavItem[];
 
 	export function getBreadcrumb(pathname: string) {
+		if (pathname === '/dashboard/grupos/asistencia') {
+			return { section: 'Grupos', page: 'Registrar asistencia' };
+		}
+
 		if (pathname === '/dashboard/pagos/registrar') {
 			return { section: 'Pagos', page: 'Registrar pago' };
 		}
@@ -187,7 +191,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
-						<a href="/login-04" {...props}>
+						<a href="/login" {...props}>
 							<LogOutIcon />
 							<span>Cerrar sesión</span>
 						</a>
