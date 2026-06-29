@@ -3,6 +3,7 @@
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import { page } from '$app/state';
 
 	let { children } = $props();
@@ -36,6 +37,9 @@
 					</Breadcrumb.Item>
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
+			<div class="ms-auto">
+				<ThemeToggle />
+			</div>
 		</header>
 		<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
 			{@render children()}
