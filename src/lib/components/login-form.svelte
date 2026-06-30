@@ -121,7 +121,4 @@
 			</div>
 		</Card.Content>
 	</Card.Root>
-	<FieldDescription class="px-6 text-center">
-		BC Dance Manager v 0.0.1
-	</FieldDescription>
 </div>

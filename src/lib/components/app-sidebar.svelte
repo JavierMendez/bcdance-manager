@@ -9,7 +9,6 @@
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import UserCogIcon from '@lucide/svelte/icons/user-cog';
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
-	import Music2Icon from '@lucide/svelte/icons/music-2';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import type { AppRole } from '$lib/auth/roles.js';
 	import { USER_NAV_URLS } from '$lib/auth/roles.js';
@@ -156,11 +155,11 @@
 				<Sidebar.MenuButton size="lg">
 					{#snippet child({ props })}
 						<a href="/dashboard" {...props}>
-							<div
-								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
-							>
-								<Music2Icon />
-							</div>
+							<img
+								src="/images/bc-dance-studio-logo.jpg"
+								alt="BC Dance Studio"
+								class="size-8 shrink-0 rounded-lg object-cover"
+							/>
 							<div class="flex flex-col gap-0.5 leading-none">
 								<span class="font-medium">BC Dance Manager</span>
 								<span class="text-muted-foreground text-xs">Panel de control</span>
