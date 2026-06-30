@@ -46,7 +46,6 @@ export const load: PageServerLoad = async () => {
 					id: students.id,
 					fullName: students.fullName,
 					phone: students.phone,
-					email: students.email,
 					active: students.active
 				}
 			})

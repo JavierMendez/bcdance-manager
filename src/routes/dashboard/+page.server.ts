@@ -61,7 +61,7 @@ export const load: PageServerLoad = async () => {
 			studentsNeedingAttention.push({
 				id: student.id,
 				fullName: student.fullName,
-				email: student.email,
+				phone: student.phone,
 				paymentStatus
 			});
 		}

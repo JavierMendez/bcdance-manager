@@ -23,7 +23,6 @@ function serializeStudent(
 		id: student.id,
 		fullName: student.fullName,
 		phone: student.phone,
-		email: student.email,
 		enrolledAt: student.enrolledAt.toISOString(),
 		active: student.active,
 		paymentStatus
@@ -73,8 +72,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const { errors, values } = validateStudentInput({
 			fullName: String(formData.get('fullName') ?? ''),
-			phone: String(formData.get('phone') ?? ''),
-			email: String(formData.get('email') ?? '')
+			phone: String(formData.get('phone') ?? '')
 		});
 
 		if (Object.keys(errors).length > 0) {
@@ -89,7 +87,6 @@ export const actions: Actions = {
 				.values({
 					fullName: values.fullName,
 					phone: values.phone,
-					email: values.email,
 					updatedAt: new Date()
 				})
 				.returning();
@@ -98,7 +95,7 @@ export const actions: Actions = {
 		} catch (error) {
 			if (isUniqueViolation(error)) {
 				return fail(400, {
-					errors: { email: 'Ya existe un alumno con este correo electrónico.' },
+					errors: { phone: 'Ya existe un alumno con este teléfono.' },
 					values,
 					mode: 'create' as const
 				});
@@ -118,8 +115,7 @@ export const actions: Actions = {
 
 		const { errors, values } = validateStudentInput({
 			fullName: String(formData.get('fullName') ?? ''),
-			phone: String(formData.get('phone') ?? ''),
-			email: String(formData.get('email') ?? '')
+			phone: String(formData.get('phone') ?? '')
 		});
 
 		if (Object.keys(errors).length > 0) {
@@ -134,7 +130,6 @@ export const actions: Actions = {
 				.set({
 					fullName: values.fullName,
 					phone: values.phone,
-					email: values.email,
 					updatedAt: new Date()
 				})
 				.where(eq(students.id, id))
@@ -152,7 +147,7 @@ export const actions: Actions = {
 		} catch (error) {
 			if (isUniqueViolation(error)) {
 				return fail(400, {
-					errors: { email: 'Ya existe un alumno con este correo electrónico.' },
+					errors: { phone: 'Ya existe un alumno con este teléfono.' },
 					values,
 					mode: 'edit' as const,
 					id

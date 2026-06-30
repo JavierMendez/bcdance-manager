@@ -8,8 +8,10 @@
 		FieldError
 	} from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import PhoneInput from '$lib/components/phone-input.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatEnrollmentDate, type SerializedStudent } from '$lib/students.js';
+	import { extractPhoneDigits } from '$lib/phone.js';
 	import { createDialogSubmitHandler } from '$lib/form-enhance.js';
 	import { enhance } from '$app/forms';
 
@@ -28,7 +30,7 @@
 		mode: Mode;
 		student?: SerializedStudent | null;
 		errors?: Record<string, string>;
-		values?: { fullName: string; phone: string; email: string } | null;
+		values?: { fullName: string; phone: string } | null;
 		onClosed?: () => void;
 		onSuccess?: (data: Record<string, unknown>) => void;
 	} = $props();
@@ -44,7 +46,6 @@
 
 	let fullName = $state('');
 	let phone = $state('');
-	let email = $state('');
 	let submitting = $state(false);
 
 	const enrolledAt = $derived(student?.enrolledAt ?? new Date().toISOString());
@@ -52,8 +53,7 @@
 	$effect(() => {
 		if (open) {
 			fullName = values?.fullName ?? student?.fullName ?? '';
-			phone = values?.phone ?? student?.phone ?? '';
-			email = values?.email ?? student?.email ?? '';
+			phone = extractPhoneDigits(values?.phone ?? student?.phone ?? '');
 		}
 	});
 
@@ -106,31 +106,15 @@
 
 					<Field data-invalid={errors.phone ? true : undefined}>
 						<FieldLabel for="phone-{formId}">Teléfono</FieldLabel>
-						<Input
+						<PhoneInput
 							id="phone-{formId}"
 							name="phone"
-							type="tel"
 							bind:value={phone}
 							required
 							aria-invalid={errors.phone ? true : undefined}
 						/>
 						{#if errors.phone}
 							<FieldError>{errors.phone}</FieldError>
-						{/if}
-					</Field>
-
-					<Field data-invalid={errors.email ? true : undefined}>
-						<FieldLabel for="email-{formId}">Correo electrónico</FieldLabel>
-						<Input
-							id="email-{formId}"
-							name="email"
-							type="email"
-							bind:value={email}
-							required
-							aria-invalid={errors.email ? true : undefined}
-						/>
-						{#if errors.email}
-							<FieldError>{errors.email}</FieldError>
 						{/if}
 					</Field>
 

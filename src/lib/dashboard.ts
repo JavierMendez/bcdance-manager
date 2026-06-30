@@ -25,7 +25,7 @@ export type PaymentStatusPoint = {
 export type StudentAttentionItem = {
 	id: number;
 	fullName: string;
-	email: string;
+	phone: string;
 	paymentStatus: PaymentStatus;
 };
 

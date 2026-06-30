@@ -11,7 +11,6 @@ export type GroupMember = {
 	studentId: number;
 	fullName: string;
 	phone: string;
-	email: string;
 	studentActive: boolean;
 	modalityLabel: string;
 	planName: string;
@@ -53,7 +52,6 @@ type EntitlementRow = {
 		id: number;
 		fullName: string;
 		phone: string;
-		email: string;
 		active: boolean;
 	};
 };
@@ -190,7 +188,6 @@ function buildMemberFromEntitlements(
 		studentId: student.id,
 		fullName: student.fullName,
 		phone: student.phone,
-		email: student.email,
 		studentActive: student.active,
 		modalityLabel: modalityParts.join(' + '),
 		planName: planParts.join(' · '),

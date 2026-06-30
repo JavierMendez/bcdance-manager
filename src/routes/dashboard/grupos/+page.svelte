@@ -11,6 +11,7 @@
 		getPaymentStatusBadgeVariant
 	} from '$lib/payments.js';
 	import { formatPrice } from '$lib/payment-plans.js';
+	import { formatPhone } from '$lib/phone.js';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -152,10 +153,7 @@
 															</div>
 														</Table.Cell>
 														<Table.Cell>
-															<div class="flex flex-col gap-0.5 text-sm">
-																<span>{member.phone}</span>
-																<span class="text-muted-foreground">{member.email}</span>
-															</div>
+															<span class="text-sm">{formatPhone(member.phone)}</span>
 														</Table.Cell>
 														<Table.Cell>{member.modalityLabel}</Table.Cell>
 														<Table.Cell>{member.planName}</Table.Cell>

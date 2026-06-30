@@ -11,6 +11,7 @@
 		getPurchaseTypeLabel
 	} from '$lib/dashboard.js';
 	import { formatPrice } from '$lib/payment-plans.js';
+	import { formatPhone } from '$lib/phone.js';
 	import {
 		getPaymentStatusBadgeVariant,
 		PAYMENT_STATUS_LABELS
@@ -379,7 +380,7 @@
 									<Table.Cell>
 										<div class="flex flex-col gap-0.5">
 											<span class="font-medium">{student.fullName}</span>
-											<span class="text-muted-foreground text-xs">{student.email}</span>
+											<span class="text-muted-foreground text-xs">{formatPhone(student.phone)}</span>
 										</div>
 									</Table.Cell>
 									<Table.Cell>

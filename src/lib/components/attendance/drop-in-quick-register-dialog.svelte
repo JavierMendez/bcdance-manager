@@ -11,6 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatPrice } from '$lib/payment-plans.js';
+	import { formatPhone } from '$lib/phone.js';
 	import {
 		calculatePaymentTotals,
 		DROP_IN_DEFAULT_CLASSES,
@@ -141,7 +142,7 @@
 					>
 						<option value="">{DROP_IN_GUEST_LABEL} — solo registrar pago</option>
 						{#each students as student (student.id)}
-							<option value={String(student.id)}>{student.fullName} — {student.email}</option>
+							<option value={String(student.id)}>{student.fullName} — {formatPhone(student.phone)}</option>
 						{/each}
 					</select>
 					{#if errors.studentId}

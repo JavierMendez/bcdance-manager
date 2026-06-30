@@ -64,6 +64,13 @@
       "when": 1782764043289,
       "tag": "0009_add_expenses",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782765043289,
+      "tag": "0010_remove_student_email",
+      "breakpoints": true
     }
   ]
 }

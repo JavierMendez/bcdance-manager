@@ -3,8 +3,7 @@ import { boolean, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 export const students = pgTable('students', {
 	id: serial('id').primaryKey(),
 	fullName: text('full_name').notNull(),
-	phone: text('phone').notNull(),
-	email: text('email').notNull().unique(),
+	phone: text('phone').notNull().unique(),
 	enrolledAt: timestamp('enrolled_at', { withTimezone: true }).defaultNow().notNull(),
 	active: boolean('active').default(true).notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

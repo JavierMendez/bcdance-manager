@@ -98,7 +98,7 @@ export type PlanType = 'monthly' | 'full_pass' | 'drop_in';
 export type WizardStudent = {
 	id: number;
 	fullName: string;
-	email: string;
+	phone: string;
 };
 
 export type WizardCourse = {

@@ -8,7 +8,7 @@
 		getPaymentStatusBadgeVariant,
 		PAYMENT_STATUS_LABELS
 	} from '$lib/payments.js';
-	import { formatEnrollmentDate, type SerializedStudent } from '$lib/students.js';
+	import { formatEnrollmentDate, formatPhone, type SerializedStudent } from '$lib/students.js';
 	import { enhance } from '$app/forms';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -81,7 +81,6 @@
 				<Table.Row>
 					<Table.Head>Nombre completo</Table.Head>
 					<Table.Head>Teléfono</Table.Head>
-					<Table.Head>Correo electrónico</Table.Head>
 					<Table.Head>Fecha de inscripción</Table.Head>
 					<Table.Head>Estado</Table.Head>
 					<Table.Head>Pago</Table.Head>
@@ -91,7 +90,7 @@
 			<Table.Body>
 				{#if displayedStudents.length === 0}
 					<Table.Row>
-						<Table.Cell colspan={7} class="text-muted-foreground h-24 text-center">
+						<Table.Cell colspan={6} class="text-muted-foreground h-24 text-center">
 							No hay alumnos registrados.
 						</Table.Cell>
 					</Table.Row>
@@ -99,8 +98,7 @@
 					{#each displayedStudents as student (student.id)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{student.fullName}</Table.Cell>
-							<Table.Cell>{student.phone}</Table.Cell>
-							<Table.Cell>{student.email}</Table.Cell>
+							<Table.Cell>{formatPhone(student.phone)}</Table.Cell>
 							<Table.Cell>{formatEnrollmentDate(student.enrolledAt)}</Table.Cell>
 							<Table.Cell>
 								<Badge variant={student.active ? 'default' : 'secondary'}>

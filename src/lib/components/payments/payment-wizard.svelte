@@ -13,6 +13,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { formatPrice } from '$lib/payment-plans.js';
+	import { formatPhone } from '$lib/phone.js';
 	import {
 		PURCHASE_TYPES,
 		PURCHASE_TYPE_LABELS,
@@ -297,7 +298,7 @@
 						>
 							<option value="">{DROP_IN_GUEST_LABEL} — pago ocasional</option>
 							{#each students as student (student.id)}
-								<option value={String(student.id)}>{student.fullName} — {student.email}</option>
+								<option value={String(student.id)}>{student.fullName} — {formatPhone(student.phone)}</option>
 							{/each}
 						</select>
 						{#if stepErrors.studentId}

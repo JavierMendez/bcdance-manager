@@ -50,7 +50,7 @@ export const load: PageServerLoad = async () => {
 			.select({
 				id: students.id,
 				fullName: students.fullName,
-				email: students.email
+				phone: students.phone
 			})
 			.from(students)
 			.where(eq(students.active, true)),
