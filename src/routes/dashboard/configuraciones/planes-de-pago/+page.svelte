@@ -9,6 +9,7 @@
 		formatPrice,
 		type SerializedPaymentPlan
 	} from '$lib/payment-plans.js';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import type { PageData } from './$types.js';
 
@@ -16,22 +17,47 @@
 
 	let paymentPlans = $derived(data.paymentPlans);
 	let createOpen = $state(false);
+	let editOpen = $state(false);
+	let editingPlan = $state<SerializedPaymentPlan | null>(null);
 	let optimisticPaymentPlans = $state<SerializedPaymentPlan[] | null>(null);
 
 	const displayedPaymentPlans = $derived(optimisticPaymentPlans ?? paymentPlans);
 
 	const createErrors = $derived(form?.mode === 'create' ? (form.errors ?? {}) : {});
+	const editErrors = $derived(form?.mode === 'edit' ? (form.errors ?? {}) : {});
 	const createValues = $derived(form?.mode === 'create' ? (form.values ?? null) : null);
+	const editValues = $derived(form?.mode === 'edit' ? (form.values ?? null) : null);
 
-	function handlePaymentPlanCreated(data: Record<string, unknown>) {
+	function handlePaymentPlanSaved(data: Record<string, unknown>) {
 		const paymentPlan = data.paymentPlan as SerializedPaymentPlan;
 		const current = optimisticPaymentPlans ?? paymentPlans;
-		optimisticPaymentPlans = [paymentPlan, ...current];
+		const index = current.findIndex((plan) => plan.id === paymentPlan.id);
+
+		if (index === -1) {
+			optimisticPaymentPlans = [paymentPlan, ...current];
+		} else {
+			optimisticPaymentPlans = current.map((plan) =>
+				plan.id === paymentPlan.id ? paymentPlan : plan
+			);
+		}
+	}
+
+	function openEdit(plan: SerializedPaymentPlan) {
+		editingPlan = plan;
+		editOpen = true;
 	}
 
 	$effect(() => {
 		if (form?.mode === 'create' && form.errors) {
 			createOpen = true;
+		}
+
+		if (form?.mode === 'edit' && form.errors && form.id) {
+			editOpen = true;
+			if (!editingPlan || editingPlan.id !== form.id) {
+				const current = optimisticPaymentPlans ?? paymentPlans;
+				editingPlan = current.find((plan) => plan.id === form.id) ?? editingPlan;
+			}
 		}
 	});
 
@@ -65,12 +91,13 @@
 					<Table.Head>Precio</Table.Head>
 					<Table.Head>Periodicidad</Table.Head>
 					<Table.Head>Incluye</Table.Head>
+					<Table.Head class="text-end">Acciones</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#if displayedPaymentPlans.length === 0}
 					<Table.Row>
-						<Table.Cell colspan={6} class="text-muted-foreground h-24 text-center">
+						<Table.Cell colspan={7} class="text-muted-foreground h-24 text-center">
 							No hay planes de pago registrados.
 						</Table.Cell>
 					</Table.Row>
@@ -87,6 +114,14 @@
 									? formatClassesIncluded(plan.classesIncluded)
 									: formatHoursIncluded(plan.hoursIncluded)}
 							</Table.Cell>
+							<Table.Cell>
+								<div class="flex justify-end">
+									<Button variant="outline" size="sm" onclick={() => openEdit(plan)}>
+										<PencilIcon data-icon="inline-start" />
+										Editar
+									</Button>
+								</div>
+							</Table.Cell>
 						</Table.Row>
 					{/each}
 				{/if}
@@ -97,7 +132,18 @@
 
 <PaymentPlanDialog
 	bind:open={createOpen}
+	mode="create"
 	errors={createErrors}
 	values={createValues}
-	onSuccess={handlePaymentPlanCreated}
+	onSuccess={handlePaymentPlanSaved}
+/>
+
+<PaymentPlanDialog
+	bind:open={editOpen}
+	mode="edit"
+	paymentPlan={editingPlan}
+	errors={editErrors}
+	values={editValues}
+	onClosed={() => (editingPlan = null)}
+	onSuccess={handlePaymentPlanSaved}
 />

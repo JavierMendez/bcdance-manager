@@ -42,10 +42,12 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 	const name = data.name.trim();
 	const description = data.description.trim();
 	const priceValue = data.price.trim();
-	const billingPeriod = data.billingPeriod;
+	const billingPeriodInput = data.billingPeriod;
 	const planType = data.planType;
 	const classesIncludedValue = data.classesIncluded.trim();
 	const hoursIncludedValue = data.hoursIncluded.trim();
+	const billingPeriod: BillingPeriod =
+		planType === 'drop_in' ? 'Por clase' : billingPeriodInput;
 
 	if (!name) {
 		errors.name = 'El nombre es obligatorio.';
@@ -64,7 +66,7 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 		}
 	}
 
-	if (!BILLING_PERIODS.includes(billingPeriod)) {
+	if (planType !== 'drop_in' && !BILLING_PERIODS.includes(billingPeriod)) {
 		errors.billingPeriod = 'Selecciona una periodicidad válida.';
 	}
 
@@ -130,6 +132,18 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 			classesIncluded,
 			hoursIncluded
 		}
+	};
+}
+
+export function toPaymentPlanFormValues(plan: SerializedPaymentPlan): PaymentPlanFormValues {
+	return {
+		name: plan.name,
+		description: plan.description,
+		planType: plan.planType,
+		price: String(plan.price),
+		billingPeriod: plan.billingPeriod,
+		classesIncluded: plan.classesIncluded != null ? String(plan.classesIncluded) : '',
+		hoursIncluded: plan.hoursIncluded != null ? String(plan.hoursIncluded) : '12'
 	};
 }
 

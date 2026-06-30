@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
 import { paymentPlans } from '$lib/server/db/schema/index.js';
 import {
@@ -75,6 +75,47 @@ export const actions: Actions = {
 			success: true,
 			mode: 'create' as const,
 			paymentPlan: serializePaymentPlan(created)
+		};
+	},
+
+	update: async ({ request }) => {
+		const formData = await request.formData();
+		const id = Number(formData.get('id'));
+		const { errors, values, parsed } = parsePaymentPlanForm(formData);
+
+		if (!id) {
+			return fail(400, { message: 'Plan de pago no válido.' });
+		}
+
+		if (Object.keys(errors).length > 0) {
+			return fail(400, { errors, values, mode: 'edit' as const, id });
+		}
+
+		const db = getDb();
+
+		const [updated] = await db
+			.update(paymentPlans)
+			.set({
+				name: parsed.name,
+				description: parsed.description,
+				planType: parsed.planType,
+				price: parsed.price,
+				billingPeriod: parsed.billingPeriod,
+				classesIncluded: parsed.classesIncluded,
+				hoursIncluded: parsed.hoursIncluded,
+				updatedAt: new Date()
+			})
+			.where(eq(paymentPlans.id, id))
+			.returning();
+
+		if (!updated) {
+			return fail(404, { message: 'Plan de pago no encontrado.' });
+		}
+
+		return {
+			success: true,
+			mode: 'edit' as const,
+			paymentPlan: serializePaymentPlan(updated)
 		};
 	}
 };
