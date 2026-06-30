@@ -7,6 +7,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
+	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import Music2Icon from '@lucide/svelte/icons/music-2';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 
@@ -28,6 +29,7 @@
 		{ title: 'Alumnos', url: '/dashboard/alumnos', icon: UsersIcon },
 		{ title: 'Grupos', url: '/dashboard/grupos', icon: LayersIcon },
 		{ title: 'Pagos', url: '/dashboard/pagos', icon: WalletIcon },
+		{ title: 'Flujo de efectivo', url: '/dashboard/flujo-de-efectivo', icon: ArrowLeftRightIcon },
 		{
 			title: 'Configuraciones',
 			url: '/dashboard/configuraciones',
@@ -50,6 +52,10 @@
 
 		if (pathname === '/dashboard/pagos/registrar') {
 			return { section: 'Pagos', page: 'Registrar pago' };
+		}
+
+		if (pathname === '/dashboard/flujo-de-efectivo') {
+			return { section: 'Flujo de efectivo', page: 'Flujo de efectivo' };
 		}
 
 		for (const item of navItems) {

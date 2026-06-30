@@ -57,6 +57,13 @@
       "when": 1782763043289,
       "tag": "0008_add_payment_discounts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782764043289,
+      "tag": "0009_add_expenses",
+      "breakpoints": true
     }
   ]
 }
