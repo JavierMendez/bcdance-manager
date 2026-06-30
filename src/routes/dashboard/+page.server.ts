@@ -2,7 +2,9 @@ import { desc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
 import {
 	buildMonthlyRevenueChart,
+	buildMonthlyRevenueChartDisplay,
 	buildPaymentStatusChart,
+	getPaymentMonthKey,
 	type DashboardData,
 	type RecentPaymentItem,
 	type StudentAttentionItem
@@ -74,10 +76,17 @@ export const load: PageServerLoad = async () => {
 	});
 
 	const activeStudents = studentRows.filter((student) => student.active).length;
-	const currentMonthPayments = paymentRows.filter(({ payment }) => {
-		const paidAt = payment.paidAt;
-		return paidAt.getFullYear() === now.getFullYear() && paidAt.getMonth() === now.getMonth();
-	});
+	const currentMonthKey = getPaymentMonthKey(now);
+	const currentMonthPayments = paymentRows.filter(
+		({ payment }) => getPaymentMonthKey(payment.paidAt) === currentMonthKey
+	);
+
+	const monthlyRevenueChart = buildMonthlyRevenueChart(
+		paymentRows.map(({ payment }) => ({
+			paidAt: payment.paidAt,
+			totalAmount: payment.totalAmount
+		}))
+	);
 
 	const recentPayments: RecentPaymentItem[] = paymentRows.slice(0, 5).map(({ payment, studentName }) => ({
 		id: payment.id,
@@ -95,12 +104,8 @@ export const load: PageServerLoad = async () => {
 		expiringSoonCount: paymentStatusCounts.por_vencer,
 		expiredCount: paymentStatusCounts.vencido,
 		vigenteCount: paymentStatusCounts.vigente,
-		monthlyRevenueChart: buildMonthlyRevenueChart(
-			paymentRows.map(({ payment }) => ({
-				paidAt: payment.paidAt,
-				totalAmount: payment.totalAmount
-			}))
-		),
+		monthlyRevenueChart,
+		monthlyRevenueChartDisplay: buildMonthlyRevenueChartDisplay(monthlyRevenueChart),
 		paymentStatusChart: buildPaymentStatusChart(paymentStatusCounts),
 		studentsNeedingAttention: studentsNeedingAttention.slice(0, 6),
 		recentPayments

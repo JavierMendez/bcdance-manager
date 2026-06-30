@@ -1,5 +1,5 @@
 import { formatPrice } from '$lib/payment-plans.js';
-import { APP_LOCALE } from '$lib/locale.js';
+import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import {
 	PAYMENT_STATUS_LABELS,
 	type PaymentStatus,
@@ -46,6 +46,7 @@ export type DashboardData = {
 	expiredCount: number;
 	vigenteCount: number;
 	monthlyRevenueChart: MonthlyRevenuePoint[];
+	monthlyRevenueChartDisplay: MonthlyRevenuePoint[];
 	paymentStatusChart: PaymentStatusPoint[];
 	studentsNeedingAttention: StudentAttentionItem[];
 	recentPayments: RecentPaymentItem[];
@@ -57,27 +58,39 @@ const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
 	vencido: 'var(--chart-2)'
 };
 
+export function getPaymentMonthKey(paidAt: Date) {
+	return getCalendarDateInAppTimezone(paidAt).slice(0, 7);
+}
+
+function addMonthsLocal(year: number, month: number, offset: number) {
+	const date = new Date(year, month - 1 + offset, 1);
+	return { year: date.getFullYear(), month: date.getMonth() + 1 };
+}
+
 export function buildMonthlyRevenueChart(
 	payments: { paidAt: Date; totalAmount: number }[],
 	months = 6,
 	now = new Date()
 ): MonthlyRevenuePoint[] {
 	const points: MonthlyRevenuePoint[] = [];
+	const [todayYear, todayMonth] = getCalendarDateInAppTimezone(now).split('-').map(Number);
 
 	for (let offset = months - 1; offset >= 0; offset -= 1) {
-		const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-		const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-		const monthLabel = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short' }).format(date);
-		const monthPayments = payments.filter((payment) => {
-			const paidAt = payment.paidAt;
-			return (
-				paidAt.getFullYear() === date.getFullYear() && paidAt.getMonth() === date.getMonth()
-			);
-		});
+		const { year, month } = addMonthsLocal(todayYear, todayMonth, -offset);
+		const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+		const monthLabel = new Intl.DateTimeFormat(APP_LOCALE, {
+			month: 'short',
+			timeZone: 'UTC'
+		})
+			.format(new Date(`${monthKey}-01T12:00:00.000Z`))
+			.replace('.', '');
+		const monthPayments = payments.filter(
+			(payment) => getPaymentMonthKey(payment.paidAt) === monthKey
+		);
 
 		points.push({
 			monthKey,
-			monthLabel: monthLabel.replace('.', ''),
+			monthLabel,
 			monthFullLabel: formatDashboardMonthLabel(monthKey),
 			revenue: monthPayments.reduce((sum, payment) => sum + payment.totalAmount, 0),
 			payments: monthPayments.length
@@ -85,6 +98,20 @@ export function buildMonthlyRevenueChart(
 	}
 
 	return points;
+}
+
+export function buildMonthlyRevenueChartDisplay(points: MonthlyRevenuePoint[]) {
+	const activePoints = points.filter((point) => point.revenue > 0);
+	return activePoints.length > 0 ? activePoints : points;
+}
+
+export function formatDashboardChartAxisLabel(monthKey: string) {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
+		month: 'short',
+		timeZone: 'UTC'
+	})
+		.format(new Date(`${monthKey}-01T12:00:00.000Z`))
+		.replace('.', '');
 }
 
 export function buildPaymentStatusChart(counts: Record<PaymentStatus, number>): PaymentStatusPoint[] {
@@ -97,11 +124,11 @@ export function buildPaymentStatusChart(counts: Record<PaymentStatus, number>): 
 }
 
 export function formatDashboardMonthLabel(monthKey: string) {
-	const [year, month] = monthKey.split('-').map(Number);
 	return new Intl.DateTimeFormat(APP_LOCALE, {
 		month: 'long',
-		year: 'numeric'
-	}).format(new Date(year, month - 1, 1));
+		year: 'numeric',
+		timeZone: 'UTC'
+	}).format(new Date(`${monthKey}-01T12:00:00.000Z`));
 }
 
 export function formatDashboardCurrency(amount: number) {

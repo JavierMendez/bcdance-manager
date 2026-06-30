@@ -5,6 +5,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
+		formatDashboardChartAxisLabel,
 		formatDashboardCurrency,
 		formatRecentPaymentDate,
 		getPurchaseTypeLabel
@@ -55,6 +56,16 @@
 		dashboard.paymentStatusChart.filter((entry) => entry.count > 0)
 	);
 
+	const hasRevenueChartData = $derived(
+		dashboard.monthlyRevenueChartDisplay.some((entry) => entry.revenue > 0)
+	);
+
+	const revenueChartRenderKey = $derived(
+		dashboard.monthlyRevenueChartDisplay
+			.map((entry) => `${entry.monthKey}:${entry.revenue}`)
+			.join('|')
+	);
+
 	function formatAxisCurrency(value: number) {
 		if (value >= 1_000_000) {
 			return `${Math.round(value / 1_000_000)}M`;
@@ -81,6 +92,57 @@
 			Registrar pago
 		</Button>
 	</div>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Acciones rápidas</Card.Title>
+			<Card.Description>Accesos directos a las tareas más frecuentes</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/pagos/registrar">
+					<WalletIcon data-icon="inline-start" />
+					<span class="flex flex-col items-start gap-0.5 text-left">
+						<span>Registrar pago</span>
+						<span class="text-muted-foreground text-xs font-normal">
+							Renovar plan o vender full pass
+						</span>
+					</span>
+				</Button>
+				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/alumnos">
+					<UserPlusIcon data-icon="inline-start" />
+					<span class="flex flex-col items-start gap-0.5 text-left">
+						<span>Gestionar alumnos</span>
+						<span class="text-muted-foreground text-xs font-normal">
+							Altas, edición y estado de pago
+						</span>
+					</span>
+				</Button>
+				<Button
+					variant="outline"
+					class="h-auto justify-start py-3"
+					href="/dashboard/configuraciones/planes-de-pago"
+				>
+					<CreditCardIcon data-icon="inline-start" />
+					<span class="flex flex-col items-start gap-0.5 text-left">
+						<span>Planes de pago</span>
+						<span class="text-muted-foreground text-xs font-normal">
+							Precios y tipos de cobertura
+						</span>
+					</span>
+				</Button>
+				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/configuraciones/cursos">
+					<UsersIcon data-icon="inline-start" />
+					<span class="flex flex-col items-start gap-0.5 text-left">
+						<span>Catálogo de cursos</span>
+						<span class="text-muted-foreground text-xs font-normal">
+							Horarios y disponibilidad
+						</span>
+					</span>
+				</Button>
+			</div>
+		</Card.Content>
+	</Card.Root>
 
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 		<Card.Root>
@@ -162,47 +224,54 @@
 				<Card.Description>Últimos 6 meses de pagos registrados</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				{#if dashboard.monthlyRevenueChart.every((entry) => entry.revenue === 0)}
+				{#if !hasRevenueChartData}
 					<div class="text-muted-foreground flex min-h-[260px] items-center justify-center text-sm">
 						Aún no hay ingresos registrados para mostrar la tendencia.
 					</div>
 				{:else}
-					<Chart.Container config={revenueChartConfig} class="aspect-auto min-h-[260px] w-full">
-						<BarChart
-							data={dashboard.monthlyRevenueChart}
-							x="monthLabel"
-							axis="x"
-							bandPadding={0.3}
-							series={[
-								{
-									key: 'revenue',
-									label: revenueChartConfig.revenue.label,
-									color: revenueChartConfig.revenue.color
-								}
-							]}
-							props={{
-								xAxis: {
-									format: (value: string) => value.slice(0, 3)
-								},
-								yAxis: {
-									format: formatAxisCurrency
-								}
-							}}
+					{#key revenueChartRenderKey}
+						<Chart.Container
+							config={revenueChartConfig}
+							class="aspect-auto h-[280px] min-h-[280px] w-full"
 						>
-							{#snippet tooltip()}
-								<Chart.Tooltip labelKey="monthFullLabel">
-									{#snippet formatter({ value, name })}
-										<div class="flex w-full items-center justify-between gap-4">
-											<span class="text-muted-foreground">{name}</span>
-											<span class="font-mono font-medium tabular-nums">
-												{formatPrice(Number(value))}
-											</span>
-										</div>
-									{/snippet}
-								</Chart.Tooltip>
-							{/snippet}
-						</BarChart>
-					</Chart.Container>
+							<BarChart
+								data={dashboard.monthlyRevenueChartDisplay}
+								x="monthKey"
+								axis="x"
+								height={280}
+								bandPadding={0.28}
+								legend
+								series={[
+									{
+										key: 'revenue',
+										label: revenueChartConfig.revenue.label,
+										color: 'var(--color-revenue)'
+									}
+								]}
+								props={{
+									xAxis: {
+										format: (value: string) => formatDashboardChartAxisLabel(value)
+									},
+									yAxis: {
+										format: formatAxisCurrency
+									}
+								}}
+							>
+								{#snippet tooltip()}
+									<Chart.Tooltip labelKey="monthFullLabel">
+										{#snippet formatter({ value, name })}
+											<div class="flex w-full items-center justify-between gap-4">
+												<span class="text-muted-foreground">{name}</span>
+												<span class="font-mono font-medium tabular-nums">
+													{formatPrice(Number(value))}
+												</span>
+											</div>
+										{/snippet}
+									</Chart.Tooltip>
+								{/snippet}
+							</BarChart>
+						</Chart.Container>
+					{/key}
 				{/if}
 			</Card.Content>
 		</Card.Root>
@@ -225,7 +294,7 @@
 						Sin datos de cobertura para mostrar.
 					</div>
 				{:else}
-					<Chart.Container config={statusChartConfig} class="aspect-auto min-h-[220px] w-full">
+					<Chart.Container config={statusChartConfig} class="aspect-auto h-[220px] min-h-[220px] w-full">
 						<PieChart
 							data={paymentStatusPieData}
 							key="status"
@@ -393,55 +462,4 @@
 			</Card.Content>
 		</Card.Root>
 	</div>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Acciones rápidas</Card.Title>
-			<Card.Description>Accesos directos a las tareas más frecuentes</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/pagos/registrar">
-					<WalletIcon data-icon="inline-start" />
-					<span class="flex flex-col items-start gap-0.5 text-left">
-						<span>Registrar pago</span>
-						<span class="text-muted-foreground text-xs font-normal">
-							Renovar plan o vender full pass
-						</span>
-					</span>
-				</Button>
-				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/alumnos">
-					<UserPlusIcon data-icon="inline-start" />
-					<span class="flex flex-col items-start gap-0.5 text-left">
-						<span>Gestionar alumnos</span>
-						<span class="text-muted-foreground text-xs font-normal">
-							Altas, edición y estado de pago
-						</span>
-					</span>
-				</Button>
-				<Button
-					variant="outline"
-					class="h-auto justify-start py-3"
-					href="/dashboard/configuraciones/planes-de-pago"
-				>
-					<CreditCardIcon data-icon="inline-start" />
-					<span class="flex flex-col items-start gap-0.5 text-left">
-						<span>Planes de pago</span>
-						<span class="text-muted-foreground text-xs font-normal">
-							Precios y tipos de cobertura
-						</span>
-					</span>
-				</Button>
-				<Button variant="outline" class="h-auto justify-start py-3" href="/dashboard/configuraciones/cursos">
-					<UsersIcon data-icon="inline-start" />
-					<span class="flex flex-col items-start gap-0.5 text-left">
-						<span>Catálogo de cursos</span>
-						<span class="text-muted-foreground text-xs font-normal">
-							Horarios y disponibilidad
-						</span>
-					</span>
-				</Button>
-			</div>
-		</Card.Content>
-	</Card.Root>
 </div>
