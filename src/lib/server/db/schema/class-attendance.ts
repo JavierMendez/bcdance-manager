@@ -20,6 +20,7 @@ export const classAttendance = pgTable(
 		sessionDate: date('session_date').notNull(),
 		status: text('status').notNull(),
 		hoursDeducted: integer('hours_deducted').notNull().default(0),
+		classesDeducted: integer('classes_deducted').notNull().default(0),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 	},

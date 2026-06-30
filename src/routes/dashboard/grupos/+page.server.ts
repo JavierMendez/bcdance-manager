@@ -37,6 +37,7 @@ export const load: PageServerLoad = async () => {
 				courseId: studentEntitlements.courseId,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
+				classesRemaining: studentEntitlements.classesRemaining,
 				planName: paymentPlans.name,
 				student: {
 					id: students.id,

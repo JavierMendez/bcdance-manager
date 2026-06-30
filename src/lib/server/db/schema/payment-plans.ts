@@ -1,6 +1,6 @@
 import { integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
-export const PLAN_TYPES = ['monthly', 'full_pass'] as const;
+export const PLAN_TYPES = ['monthly', 'full_pass', 'drop_in'] as const;
 
 export const paymentPlans = pgTable('payment_plans', {
 	id: serial('id').primaryKey(),

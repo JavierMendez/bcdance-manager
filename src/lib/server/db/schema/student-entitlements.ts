@@ -18,6 +18,7 @@ export const studentEntitlements = pgTable('student_entitlements', {
 		.notNull(),
 	courseId: integer('course_id').references(() => courses.id),
 	hoursRemaining: integer('hours_remaining'),
+	classesRemaining: integer('classes_remaining'),
 	startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
 	endsAt: timestamp('ends_at', { withTimezone: true }),
 	active: boolean('active').default(true).notNull(),

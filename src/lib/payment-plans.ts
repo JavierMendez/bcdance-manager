@@ -19,11 +19,12 @@ export type SerializedPaymentPlan = {
 	hoursIncluded: number | null;
 };
 
-export type PlanType = 'monthly' | 'full_pass';
+export type PlanType = 'monthly' | 'full_pass' | 'drop_in';
 
 export const PLAN_TYPES = [
 	{ value: 'monthly' as const, label: 'Plan mensual' },
-	{ value: 'full_pass' as const, label: 'Full pass' }
+	{ value: 'full_pass' as const, label: 'Full pass' },
+	{ value: 'drop_in' as const, label: 'Por clase' }
 ];
 
 export type PaymentPlanFormValues = {
@@ -67,7 +68,7 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 		errors.billingPeriod = 'Selecciona una periodicidad válida.';
 	}
 
-	if (planType !== 'monthly' && planType !== 'full_pass') {
+	if (planType !== 'monthly' && planType !== 'full_pass' && planType !== 'drop_in') {
 		errors.planType = 'Selecciona un tipo de plan válido.';
 	}
 
@@ -92,6 +93,19 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 				errors.hoursIncluded = 'Ingresa una cantidad de horas válida.';
 			} else {
 				hoursIncluded = parsed;
+			}
+		}
+	}
+
+	if (planType === 'drop_in') {
+		if (!classesIncludedValue) {
+			classesIncluded = 1;
+		} else {
+			const parsed = Number(classesIncludedValue);
+			if (!Number.isInteger(parsed) || parsed <= 0) {
+				errors.classesIncluded = 'Ingresa una cantidad de clases válida.';
+			} else {
+				classesIncluded = parsed;
 			}
 		}
 	}
@@ -136,5 +150,12 @@ export function formatHoursIncluded(hoursIncluded: number | null) {
 }
 
 export function formatPlanType(planType: PlanType) {
-	return planType === 'monthly' ? 'Plan mensual' : 'Full pass';
+	switch (planType) {
+		case 'monthly':
+			return 'Plan mensual';
+		case 'full_pass':
+			return 'Full pass';
+		case 'drop_in':
+			return 'Por clase';
+	}
 }

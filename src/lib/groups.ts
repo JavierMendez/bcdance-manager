@@ -34,6 +34,7 @@ type EntitlementRow = {
 	courseId: number | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
+	classesRemaining: number | null;
 	planName: string;
 	student: {
 		id: number;
@@ -56,6 +57,7 @@ export function resolveEntitlementStatus(
 	entitlementType: string,
 	endsAt: Date | null,
 	hoursRemaining: number | null,
+	classesRemaining: number | null = null,
 	now = new Date()
 ): PaymentStatus {
 	if (entitlementType === 'monthly_plan') {
@@ -71,6 +73,10 @@ export function resolveEntitlementStatus(
 		}
 
 		return 'vigente';
+	}
+
+	if (entitlementType === 'drop_in') {
+		return (classesRemaining ?? 0) > 0 ? 'vigente' : 'vencido';
 	}
 
 	return (hoursRemaining ?? 0) > 0 ? 'vigente' : 'vencido';
@@ -93,13 +99,19 @@ export function formatFullPassCoverage(hoursRemaining: number | null) {
 	return `${hours} h restante${hours === 1 ? '' : 's'}`;
 }
 
+export function formatDropInCoverage(classesRemaining: number | null) {
+	const classes = classesRemaining ?? 0;
+	return `${classes} clase${classes === 1 ? '' : 's'} restante${classes === 1 ? '' : 's'}`;
+}
+
 function buildMemberFromEntitlements(
 	student: EntitlementRow['student'],
 	monthly: EntitlementRow | null,
 	fullPass: EntitlementRow | null,
+	dropIn: EntitlementRow | null,
 	now: Date
 ): GroupMember | null {
-	if (!monthly && !fullPass) {
+	if (!monthly && !fullPass && !dropIn) {
 		return null;
 	}
 
@@ -116,8 +128,29 @@ function buildMemberFromEntitlements(
 			monthly.entitlementType,
 			monthly.endsAt,
 			monthly.hoursRemaining,
+			monthly.classesRemaining,
 			now
 		);
+	}
+
+	if (dropIn) {
+		modalityParts.push('Por clase');
+		planParts.push(dropIn.planName);
+		coverageParts.push(formatDropInCoverage(dropIn.classesRemaining));
+
+		const dropInStatus = resolveEntitlementStatus(
+			dropIn.entitlementType,
+			dropIn.endsAt,
+			dropIn.hoursRemaining,
+			dropIn.classesRemaining,
+			now
+		);
+
+		if (dropInStatus === 'vencido' || paymentStatus === 'vencido') {
+			paymentStatus = 'vencido';
+		} else if (dropInStatus === 'por_vencer' || paymentStatus === 'por_vencer') {
+			paymentStatus = 'por_vencer';
+		}
 	}
 
 	if (fullPass) {
@@ -129,6 +162,7 @@ function buildMemberFromEntitlements(
 			fullPass.entitlementType,
 			fullPass.endsAt,
 			fullPass.hoursRemaining,
+			fullPass.classesRemaining,
 			now
 		);
 
@@ -180,7 +214,46 @@ export function buildCourseGroups(
 			}
 
 			const fullPass = activeFullPassByStudent.get(row.student.id) ?? null;
-			const member = buildMemberFromEntitlements(row.student, row, fullPass, now);
+			const member = buildMemberFromEntitlements(row.student, row, fullPass, null, now);
+
+			if (member) {
+				membersByStudent.set(row.student.id, member);
+			}
+		}
+
+		for (const row of entitlements) {
+			if (row.entitlementType !== 'drop_in' || row.courseId !== course.id) {
+				continue;
+			}
+
+			if ((row.classesRemaining ?? 0) <= 0) {
+				continue;
+			}
+
+			if (membersByStudent.has(row.student.id)) {
+				const existing = membersByStudent.get(row.student.id)!;
+				const dropInMember = buildMemberFromEntitlements(row.student, null, null, row, now);
+
+				if (dropInMember) {
+					membersByStudent.set(row.student.id, {
+						...existing,
+						modalityLabel: `${existing.modalityLabel} + ${dropInMember.modalityLabel}`,
+						planName: `${existing.planName} · ${dropInMember.planName}`,
+						coverageLabel: `${existing.coverageLabel} · ${dropInMember.coverageLabel}`,
+						paymentStatus:
+							existing.paymentStatus === 'vencido' || dropInMember.paymentStatus === 'vencido'
+								? 'vencido'
+								: existing.paymentStatus === 'por_vencer' ||
+									  dropInMember.paymentStatus === 'por_vencer'
+									? 'por_vencer'
+									: 'vigente'
+					});
+				}
+				continue;
+			}
+
+			const fullPass = activeFullPassByStudent.get(row.student.id) ?? null;
+			const member = buildMemberFromEntitlements(row.student, null, fullPass, row, now);
 
 			if (member) {
 				membersByStudent.set(row.student.id, member);
@@ -193,7 +266,7 @@ export function buildCourseGroups(
 					continue;
 				}
 
-				const member = buildMemberFromEntitlements(fullPassRow.student, null, fullPassRow, now);
+				const member = buildMemberFromEntitlements(fullPassRow.student, null, fullPassRow, null, now);
 
 				if (member) {
 					membersByStudent.set(studentId, member);

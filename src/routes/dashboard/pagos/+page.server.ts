@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
 import { payments, students } from '$lib/server/db/schema/index.js';
 import {
+	formatStudentName,
 	PURCHASE_TYPE_LABELS,
 	type PaymentMethod,
 	type PurchaseType,
@@ -11,13 +12,13 @@ import type { PageServerLoad } from './$types.js';
 
 function serializePayment(
 	payment: typeof payments.$inferSelect,
-	studentName: string,
+	studentName: string | null,
 	summary: string
 ): SerializedPayment {
 	return {
 		id: payment.id,
 		studentId: payment.studentId,
-		studentName,
+		studentName: formatStudentName(studentName),
 		purchaseType: payment.purchaseType as PurchaseType,
 		totalAmount: payment.totalAmount,
 		paymentMethod: payment.paymentMethod as PaymentMethod,
@@ -36,7 +37,7 @@ export const load: PageServerLoad = async () => {
 			studentName: students.fullName
 		})
 		.from(payments)
-		.innerJoin(students, eq(payments.studentId, students.id))
+		.leftJoin(students, eq(payments.studentId, students.id))
 		.orderBy(desc(payments.paidAt));
 
 	return {

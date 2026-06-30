@@ -14,7 +14,8 @@ export const paymentItems = pgTable('payment_items', {
 		.notNull(),
 	courseId: integer('course_id').references(() => courses.id),
 	amount: integer('amount').notNull(),
-	hoursGranted: integer('hours_granted')
+	hoursGranted: integer('hours_granted'),
+	classesGranted: integer('classes_granted')
 });
 
 export type PaymentItem = typeof paymentItems.$inferSelect;

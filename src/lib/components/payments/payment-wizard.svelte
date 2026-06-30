@@ -19,7 +19,9 @@
 		getPurchaseTypeDescription,
 		calculateWizardTotal,
 		buildPaymentSummary,
+		DROP_IN_DEFAULT_CLASSES,
 		FULL_PASS_DEFAULT_HOURS,
+		DROP_IN_GUEST_LABEL,
 		validatePaymentWizard,
 		type PaymentMethod,
 		type PaymentWizardData,
@@ -67,6 +69,7 @@
 	let courseId = $state('');
 	let monthlyPlanId = $state('');
 	let fullPassPlanId = $state('');
+	let dropInPlanId = $state('');
 	let paymentMethod = $state<PaymentMethod>('Efectivo');
 	let paidAt = $state('');
 	let notes = $state('');
@@ -74,12 +77,14 @@
 
 	const monthlyPlans = $derived(plans.filter((plan) => plan.planType === 'monthly'));
 	const fullPassPlans = $derived(plans.filter((plan) => plan.planType === 'full_pass'));
+	const dropInPlans = $derived(plans.filter((plan) => plan.planType === 'drop_in'));
 	const needsMonthly = $derived(
 		purchaseType === 'monthly_only' || purchaseType === 'combined'
 	);
 	const needsFullPass = $derived(
 		purchaseType === 'full_pass_only' || purchaseType === 'combined'
 	);
+	const needsDropIn = $derived(purchaseType === 'drop_in_only');
 
 	const wizardData = $derived({
 		studentId,
@@ -87,6 +92,7 @@
 		courseId,
 		monthlyPlanId,
 		fullPassPlanId,
+		dropInPlanId,
 		paymentMethod,
 		paidAt,
 		notes
@@ -100,26 +106,30 @@
 	const selectedFullPassPlan = $derived(
 		fullPassPlans.find((plan) => plan.id === Number(fullPassPlanId))
 	);
+	const selectedDropInPlan = $derived(
+		dropInPlans.find((plan) => plan.id === Number(dropInPlanId))
+	);
 	const totalAmount = $derived(
 		calculateWizardTotal(
 			purchaseType,
 			plans,
 			Number(monthlyPlanId),
-			Number(fullPassPlanId)
+			Number(fullPassPlanId),
+			Number(dropInPlanId)
 		)
 	);
 
 	const summary = $derived(
-		selectedStudent
-			? buildPaymentSummary(
-					purchaseType,
-					selectedStudent.fullName,
-					selectedCourse?.name ?? null,
-					selectedMonthlyPlan?.name ?? null,
-					selectedFullPassPlan?.name ?? null,
-					totalAmount
-				)
-			: ''
+		buildPaymentSummary(
+			purchaseType,
+			selectedStudent?.fullName ?? '',
+			selectedCourse?.name ?? null,
+			selectedMonthlyPlan?.name ?? null,
+			selectedFullPassPlan?.name ?? null,
+			selectedDropInPlan?.name ?? null,
+			selectedDropInPlan?.classesIncluded ?? DROP_IN_DEFAULT_CLASSES,
+			totalAmount
+		)
 	);
 
 	$effect(() => {
@@ -137,6 +147,7 @@
 			courseId = values.courseId;
 			monthlyPlanId = values.monthlyPlanId;
 			fullPassPlanId = values.fullPassPlanId;
+			dropInPlanId = values.dropInPlanId;
 			paymentMethod = values.paymentMethod;
 			paidAt = values.paidAt;
 			notes = values.notes;
@@ -154,9 +165,10 @@
 		const partial: PaymentWizardData = {
 			studentId: currentStep >= 0 ? studentId : '',
 			purchaseType: currentStep >= 1 ? purchaseType : 'monthly_only',
-			courseId: currentStep >= 2 && needsMonthly ? courseId : '',
+			courseId: currentStep >= 2 && (needsMonthly || needsDropIn) ? courseId : '',
 			monthlyPlanId: currentStep >= 2 && needsMonthly ? monthlyPlanId : '',
 			fullPassPlanId: currentStep >= 2 && needsFullPass ? fullPassPlanId : '',
+			dropInPlanId: currentStep >= 2 && needsDropIn ? dropInPlanId : '',
 			paymentMethod: currentStep >= 3 ? paymentMethod : 'Efectivo',
 			paidAt: currentStep >= 3 ? paidAt : '',
 			notes
@@ -165,18 +177,16 @@
 		const { errors: validationErrors } = validatePaymentWizard(partial, plans, courses);
 		const filtered: Partial<Record<keyof PaymentWizardData, string>> = {};
 
-		if (currentStep === 0 && validationErrors.studentId) {
-			filtered.studentId = validationErrors.studentId;
-		}
-
-		if (currentStep === 1 && validationErrors.purchaseType) {
-			filtered.purchaseType = validationErrors.purchaseType;
+		if (currentStep === 1) {
+			if (validationErrors.purchaseType) filtered.purchaseType = validationErrors.purchaseType;
+			if (validationErrors.studentId) filtered.studentId = validationErrors.studentId;
 		}
 
 		if (currentStep === 2) {
 			if (validationErrors.courseId) filtered.courseId = validationErrors.courseId;
 			if (validationErrors.monthlyPlanId) filtered.monthlyPlanId = validationErrors.monthlyPlanId;
 			if (validationErrors.fullPassPlanId) filtered.fullPassPlanId = validationErrors.fullPassPlanId;
+			if (validationErrors.dropInPlanId) filtered.dropInPlanId = validationErrors.dropInPlanId;
 		}
 
 		if (currentStep === 3) {
@@ -253,6 +263,7 @@
 		<input type="hidden" name="courseId" value={courseId} />
 		<input type="hidden" name="monthlyPlanId" value={monthlyPlanId} />
 		<input type="hidden" name="fullPassPlanId" value={fullPassPlanId} />
+		<input type="hidden" name="dropInPlanId" value={dropInPlanId} />
 		<input type="hidden" name="paymentMethod" value={paymentMethod} />
 		<input type="hidden" name="paidAt" value={paidAt} />
 		<input type="hidden" name="notes" value={notes} />
@@ -262,13 +273,16 @@
 				<FieldGroup>
 					<Field data-invalid={stepErrors.studentId ? true : undefined}>
 						<FieldLabel for="studentId">Alumno</FieldLabel>
-						<FieldDescription>Selecciona el alumno que realiza el pago.</FieldDescription>
+						<FieldDescription>
+							Opcional para pagos por clase. Déjalo vacío para registrar un pago ocasional sin
+							alumno.
+						</FieldDescription>
 						<select
 							id="studentId"
 							bind:value={studentId}
 							class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
 						>
-							<option value="">Selecciona un alumno</option>
+							<option value="">{DROP_IN_GUEST_LABEL} — pago ocasional</option>
 							{#each students as student (student.id)}
 								<option value={String(student.id)}>{student.fullName} — {student.email}</option>
 							{/each}
@@ -279,7 +293,7 @@
 					</Field>
 				</FieldGroup>
 			{:else if currentStep === 1}
-				<div class="grid gap-4 md:grid-cols-3">
+				<div class="grid gap-4 md:grid-cols-2">
 					{#each PURCHASE_TYPES as type (type)}
 						<button
 							type="button"
@@ -371,6 +385,56 @@
 							{/if}
 						</Field>
 					{/if}
+
+					{#if needsDropIn}
+						<Field data-invalid={stepErrors.courseId ? true : undefined}>
+							<FieldLabel for="courseId">Curso</FieldLabel>
+							<FieldDescription>
+								Curso al que asistirá el alumno con este pago por clase.
+							</FieldDescription>
+							<select
+								id="courseId"
+								bind:value={courseId}
+								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+							>
+								<option value="">Selecciona un curso</option>
+								{#each courses as course (course.id)}
+									<option value={String(course.id)}>{course.name}</option>
+								{/each}
+							</select>
+							{#if stepErrors.courseId}
+								<FieldError>{stepErrors.courseId}</FieldError>
+							{/if}
+						</Field>
+
+						<Field data-invalid={stepErrors.dropInPlanId ? true : undefined}>
+							<FieldLabel for="dropInPlanId">Plan por clase</FieldLabel>
+							<select
+								id="dropInPlanId"
+								bind:value={dropInPlanId}
+								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+							>
+								<option value="">Selecciona un plan por clase</option>
+								{#each dropInPlans as plan (plan.id)}
+									<option value={String(plan.id)}>
+										{plan.name} — {formatPrice(plan.price)} ({plan.classesIncluded ??
+											DROP_IN_DEFAULT_CLASSES} clase{(plan.classesIncluded ??
+											DROP_IN_DEFAULT_CLASSES) === 1
+											? ''
+											: 's'})
+									</option>
+								{/each}
+							</select>
+							{#if dropInPlans.length === 0}
+								<FieldDescription>
+									No hay planes por clase en el catálogo. Créalos en Configuraciones.
+								</FieldDescription>
+							{/if}
+							{#if stepErrors.dropInPlanId}
+								<FieldError>{stepErrors.dropInPlanId}</FieldError>
+							{/if}
+						</Field>
+					{/if}
 				</FieldGroup>
 			{:else if currentStep === 3}
 				<FieldGroup>
@@ -418,7 +482,7 @@
 					<div class="grid gap-3 sm:grid-cols-2">
 						<div class="rounded-lg border p-4">
 							<p class="text-muted-foreground text-sm">Alumno</p>
-							<p class="font-medium">{selectedStudent?.fullName}</p>
+							<p class="font-medium">{selectedStudent?.fullName ?? DROP_IN_GUEST_LABEL}</p>
 						</div>
 						<div class="rounded-lg border p-4">
 							<p class="text-muted-foreground text-sm">Método de pago</p>
@@ -437,6 +501,19 @@
 								<p class="font-medium">{selectedFullPassPlan.name}</p>
 								<p class="text-muted-foreground text-sm">
 									{selectedFullPassPlan.hoursIncluded ?? FULL_PASS_DEFAULT_HOURS} horas
+								</p>
+							</div>
+						{/if}
+						{#if needsDropIn && selectedCourse && selectedDropInPlan}
+							<div class="rounded-lg border p-4">
+								<p class="text-muted-foreground text-sm">Clase suelta</p>
+								<p class="font-medium">{selectedDropInPlan.name}</p>
+								<p class="text-muted-foreground text-sm">
+									{selectedCourse.name} — {selectedDropInPlan.classesIncluded ??
+										DROP_IN_DEFAULT_CLASSES} clase{(selectedDropInPlan.classesIncluded ??
+										DROP_IN_DEFAULT_CLASSES) === 1
+										? ''
+										: 's'}
 								</p>
 							</div>
 						{/if}

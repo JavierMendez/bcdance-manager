@@ -57,6 +57,12 @@
 		}
 	});
 
+	$effect(() => {
+		if (planType === 'drop_in') {
+			billingPeriod = 'Por clase';
+		}
+	});
+
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
 		if (!isOpen) {
@@ -196,7 +202,7 @@
 							<FieldError>{errors.classesIncluded}</FieldError>
 						{/if}
 					</Field>
-				{:else}
+				{:else if planType === 'full_pass'}
 					<Field data-invalid={errors.hoursIncluded ? true : undefined}>
 						<FieldLabel for="hoursIncluded-{formId}">Horas incluidas</FieldLabel>
 						<Input
@@ -213,6 +219,26 @@
 						<FieldDescription>Horas disponibles para cualquier curso.</FieldDescription>
 						{#if errors.hoursIncluded}
 							<FieldError>{errors.hoursIncluded}</FieldError>
+						{/if}
+					</Field>
+				{:else}
+					<Field data-invalid={errors.classesIncluded ? true : undefined}>
+						<FieldLabel for="classesIncluded-{formId}">Clases incluidas</FieldLabel>
+						<Input
+							id="classesIncluded-{formId}"
+							name="classesIncluded"
+							type="number"
+							min="1"
+							step="1"
+							bind:value={classesIncluded}
+							placeholder="1"
+							aria-invalid={errors.classesIncluded ? true : undefined}
+						/>
+						<FieldDescription>
+							Cantidad de clases que otorga este pago (por defecto 1 clase suelta).
+						</FieldDescription>
+						{#if errors.classesIncluded}
+							<FieldError>{errors.classesIncluded}</FieldError>
 						{/if}
 					</Field>
 				{/if}

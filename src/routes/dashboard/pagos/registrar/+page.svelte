@@ -9,7 +9,7 @@
 	<div>
 		<h2 class="text-2xl font-bold tracking-tight">Registrar pago</h2>
 		<p class="text-muted-foreground text-sm">
-			Sigue los pasos para registrar un pago de plan mensual, full pass o ambos.
+			Sigue los pasos para registrar un pago de plan mensual, full pass, clase suelta o combinados.
 		</p>
 	</div>
 

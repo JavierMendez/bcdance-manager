@@ -8,7 +8,11 @@ import {
 	type StudentAttentionItem
 } from '$lib/dashboard.js';
 import { payments, studentEntitlements, students } from '$lib/server/db/schema/index.js';
-import { resolvePaymentStatus, type PurchaseType } from '$lib/payments.js';
+import {
+	formatStudentName,
+	resolvePaymentStatus,
+	type PurchaseType
+} from '$lib/payments.js';
 import type { PageServerLoad } from './$types.js';
 
 export const load: PageServerLoad = async () => {
@@ -24,7 +28,7 @@ export const load: PageServerLoad = async () => {
 				studentName: students.fullName
 			})
 			.from(payments)
-			.innerJoin(students, eq(payments.studentId, students.id))
+			.leftJoin(students, eq(payments.studentId, students.id))
 			.orderBy(desc(payments.paidAt))
 	]);
 
@@ -77,7 +81,7 @@ export const load: PageServerLoad = async () => {
 
 	const recentPayments: RecentPaymentItem[] = paymentRows.slice(0, 5).map(({ payment, studentName }) => ({
 		id: payment.id,
-		studentName,
+		studentName: formatStudentName(studentName),
 		totalAmount: payment.totalAmount,
 		paidAt: payment.paidAt.toISOString(),
 		purchaseType: payment.purchaseType as PurchaseType

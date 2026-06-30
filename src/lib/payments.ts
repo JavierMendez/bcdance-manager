@@ -2,6 +2,8 @@ import type { BillingPeriod } from '$lib/payment-plans.js';
 import { formatPrice } from '$lib/payment-plans.js';
 
 export const FULL_PASS_DEFAULT_HOURS = 12;
+export const DROP_IN_DEFAULT_CLASSES = 1;
+export const DROP_IN_GUEST_LABEL = 'Sin alumno';
 export const PAYMENT_EXPIRING_SOON_DAYS = 7;
 
 export type PaymentStatus = 'vigente' | 'por_vencer' | 'vencido';
@@ -16,8 +18,21 @@ export type EntitlementSnapshot = {
 	entitlementType: string;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
+	classesRemaining: number | null;
 	active: boolean;
 };
+
+function hasActiveDropIn(entitlements: EntitlementSnapshot[]) {
+	return entitlements.some(
+		(entry) => entry.entitlementType === 'drop_in' && (entry.classesRemaining ?? 0) > 0
+	);
+}
+
+function hasActiveFullPass(entitlements: EntitlementSnapshot[]) {
+	return entitlements.some(
+		(entry) => entry.entitlementType === 'full_pass' && (entry.hoursRemaining ?? 0) > 0
+	);
+}
 
 export function resolvePaymentStatus(
 	entitlements: EntitlementSnapshot[],
@@ -31,13 +46,12 @@ export function resolvePaymentStatus(
 		.sort((a, b) => b.getTime() - a.getTime());
 
 	const latestMonthlyEnd = monthlyEndsAt[0];
-	const hasActiveFullPass = activeEntitlements.some(
-		(entry) => entry.entitlementType === 'full_pass' && (entry.hoursRemaining ?? 0) > 0
-	);
+	const activeFullPass = hasActiveFullPass(activeEntitlements);
+	const activeDropIn = hasActiveDropIn(activeEntitlements);
 
 	if (latestMonthlyEnd) {
 		if (latestMonthlyEnd <= now) {
-			return hasActiveFullPass ? 'vigente' : 'vencido';
+			return activeFullPass || activeDropIn ? 'vigente' : 'vencido';
 		}
 
 		const daysUntilExpiry =
@@ -50,7 +64,7 @@ export function resolvePaymentStatus(
 		return 'vigente';
 	}
 
-	return hasActiveFullPass ? 'vigente' : 'vencido';
+	return activeFullPass || activeDropIn ? 'vigente' : 'vencido';
 }
 
 export function getPaymentStatusBadgeVariant(
@@ -74,11 +88,11 @@ export const PAYMENT_METHODS = [
 	'Otro'
 ] as const;
 
-export const PURCHASE_TYPES = ['monthly_only', 'full_pass_only', 'combined'] as const;
+export const PURCHASE_TYPES = ['monthly_only', 'full_pass_only', 'combined', 'drop_in_only'] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type PurchaseType = (typeof PURCHASE_TYPES)[number];
-export type PlanType = 'monthly' | 'full_pass';
+export type PlanType = 'monthly' | 'full_pass' | 'drop_in';
 
 export type WizardStudent = {
 	id: number;
@@ -108,6 +122,7 @@ export type PaymentWizardData = {
 	courseId: string;
 	monthlyPlanId: string;
 	fullPassPlanId: string;
+	dropInPlanId: string;
 	paymentMethod: PaymentMethod;
 	paidAt: string;
 	notes: string;
@@ -115,7 +130,7 @@ export type PaymentWizardData = {
 
 export type SerializedPayment = {
 	id: number;
-	studentId: number;
+	studentId: number | null;
 	studentName: string;
 	purchaseType: PurchaseType;
 	totalAmount: number;
@@ -128,7 +143,8 @@ export type SerializedPayment = {
 export const PURCHASE_TYPE_LABELS: Record<PurchaseType, string> = {
 	monthly_only: 'Plan mensual para un curso',
 	full_pass_only: 'Full pass (12 horas)',
-	combined: 'Plan mensual + Full pass'
+	combined: 'Plan mensual + Full pass',
+	drop_in_only: 'Clase suelta (por clase)'
 };
 
 export function getPurchaseTypeDescription(type: PurchaseType) {
@@ -139,7 +155,14 @@ export function getPurchaseTypeDescription(type: PurchaseType) {
 			return '12 horas disponibles para usar en cualquier curso.';
 		case 'combined':
 			return 'Combina un plan mensual para un curso y 12 horas de full pass.';
+		case 'drop_in_only':
+			return 'Pago por clase sin inscripción mensual. El alumno asiste con créditos de clase.';
 	}
+}
+
+export function normalizeStudentId(value: string | number | null | undefined): number | null {
+	const parsed = typeof value === 'number' ? value : Number(value);
+	return parsed > 0 ? parsed : null;
 }
 
 export function validatePaymentWizard(
@@ -148,13 +171,15 @@ export function validatePaymentWizard(
 	courses: WizardCourse[]
 ) {
 	const errors: Partial<Record<keyof PaymentWizardData, string>> = {};
-	const studentId = Number(data.studentId);
+	const studentId = normalizeStudentId(data.studentId);
 	const purchaseType = data.purchaseType;
 	const courseId = Number(data.courseId);
 	const monthlyPlanId = Number(data.monthlyPlanId);
 	const fullPassPlanId = Number(data.fullPassPlanId);
+	const dropInPlanId = Number(data.dropInPlanId);
+	const needsStudent = purchaseType !== 'drop_in_only';
 
-	if (!studentId) {
+	if (needsStudent && !studentId) {
 		errors.studentId = 'Selecciona un alumno.';
 	}
 
@@ -164,6 +189,7 @@ export function validatePaymentWizard(
 
 	const needsMonthly = purchaseType === 'monthly_only' || purchaseType === 'combined';
 	const needsFullPass = purchaseType === 'full_pass_only' || purchaseType === 'combined';
+	const needsDropIn = purchaseType === 'drop_in_only';
 
 	if (needsMonthly) {
 		if (!courseId) {
@@ -193,6 +219,23 @@ export function validatePaymentWizard(
 		}
 	}
 
+	if (needsDropIn) {
+		if (!courseId) {
+			errors.courseId = 'Selecciona un curso.';
+		} else if (!courses.some((course) => course.id === courseId)) {
+			errors.courseId = 'El curso seleccionado no es válido.';
+		}
+
+		if (!dropInPlanId) {
+			errors.dropInPlanId = 'Selecciona un plan por clase.';
+		} else {
+			const plan = plans.find((entry) => entry.id === dropInPlanId);
+			if (!plan || plan.planType !== 'drop_in') {
+				errors.dropInPlanId = 'El plan por clase seleccionado no es válido.';
+			}
+		}
+	}
+
 	if (!data.paymentMethod || !PAYMENT_METHODS.includes(data.paymentMethod)) {
 		errors.paymentMethod = 'Selecciona un método de pago.';
 	}
@@ -201,14 +244,22 @@ export function validatePaymentWizard(
 		errors.paidAt = 'La fecha de pago es obligatoria.';
 	}
 
-	return { errors, studentId, courseId, monthlyPlanId, fullPassPlanId };
+	return {
+		errors,
+		studentId,
+		courseId,
+		monthlyPlanId,
+		fullPassPlanId,
+		dropInPlanId
+	};
 }
 
 export function calculateWizardTotal(
 	purchaseType: PurchaseType,
 	plans: WizardPaymentPlan[],
 	monthlyPlanId: number,
-	fullPassPlanId: number
+	fullPassPlanId: number,
+	dropInPlanId: number
 ) {
 	let total = 0;
 
@@ -220,6 +271,10 @@ export function calculateWizardTotal(
 		total += plans.find((plan) => plan.id === fullPassPlanId)?.price ?? 0;
 	}
 
+	if (purchaseType === 'drop_in_only') {
+		total += plans.find((plan) => plan.id === dropInPlanId)?.price ?? 0;
+	}
+
 	return total;
 }
 
@@ -229,9 +284,11 @@ export function buildPaymentSummary(
 	courseName: string | null,
 	monthlyPlanName: string | null,
 	fullPassPlanName: string | null,
+	dropInPlanName: string | null,
+	dropInClasses: number | null,
 	totalAmount: number
 ) {
-	const parts: string[] = [studentName];
+	const parts: string[] = [studentName || DROP_IN_GUEST_LABEL];
 
 	if (purchaseType === 'monthly_only' || purchaseType === 'combined') {
 		parts.push(`Plan mensual: ${monthlyPlanName} (${courseName})`);
@@ -241,8 +298,55 @@ export function buildPaymentSummary(
 		parts.push(`Full pass: ${fullPassPlanName} (${FULL_PASS_DEFAULT_HOURS} h)`);
 	}
 
+	if (purchaseType === 'drop_in_only') {
+		const classes = dropInClasses ?? DROP_IN_DEFAULT_CLASSES;
+		parts.push(
+			`Clase suelta: ${dropInPlanName} (${courseName}) — ${classes} clase${classes === 1 ? '' : 's'}`
+		);
+	}
+
 	parts.push(formatPrice(totalAmount));
 	return parts.join(' · ');
+}
+
+export type QuickDropInFormData = {
+	studentId: string;
+	dropInPlanId: string;
+	paymentMethod: PaymentMethod;
+	notes: string;
+};
+
+export function validateQuickDropInRegistration(
+	data: QuickDropInFormData,
+	plans: WizardPaymentPlan[],
+	eligibleStudentIds: number[]
+) {
+	const errors: Partial<Record<keyof QuickDropInFormData, string>> = {};
+	const studentId = normalizeStudentId(data.studentId);
+	const dropInPlanId = Number(data.dropInPlanId);
+
+	if (studentId && !eligibleStudentIds.includes(studentId)) {
+		errors.studentId = 'El alumno seleccionado no está disponible para esta clase.';
+	}
+
+	if (!dropInPlanId) {
+		errors.dropInPlanId = 'Selecciona un plan por clase.';
+	} else {
+		const plan = plans.find((entry) => entry.id === dropInPlanId);
+		if (!plan || plan.planType !== 'drop_in') {
+			errors.dropInPlanId = 'El plan por clase seleccionado no es válido.';
+		}
+	}
+
+	if (!data.paymentMethod || !PAYMENT_METHODS.includes(data.paymentMethod)) {
+		errors.paymentMethod = 'Selecciona un método de pago.';
+	}
+
+	return { errors, studentId, dropInPlanId };
+}
+
+export function formatStudentName(studentName: string | null | undefined) {
+	return studentName || DROP_IN_GUEST_LABEL;
 }
 
 export function formatPaymentDate(isoDate: string) {

@@ -83,7 +83,7 @@
 							<Table.Cell>{formatPrice(plan.price)}</Table.Cell>
 							<Table.Cell>{plan.billingPeriod}</Table.Cell>
 							<Table.Cell>
-								{plan.planType === 'monthly'
+								{plan.planType === 'monthly' || plan.planType === 'drop_in'
 									? formatClassesIncluded(plan.classesIncluded)
 									: formatHoursIncluded(plan.hoursIncluded)}
 							</Table.Cell>

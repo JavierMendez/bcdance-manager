@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DropInQuickRegisterDialog from '$lib/components/attendance/drop-in-quick-register-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -19,6 +20,7 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import type { PageData } from './$types.js';
 
 	let {
@@ -34,11 +36,26 @@
 	let statuses = $state<Record<number, AttendanceStatus | ''>>({});
 	let submitting = $state(false);
 	let showSavedNotice = $state(false);
+	let showDropInNotice = $state(false);
+	let showDropInAttendedNotice = $state(false);
+	let dropInDialogOpen = $state(false);
+
+	const dropInErrors = $derived(
+		form?.mode === 'registerDropIn' ? (form.errors ?? {}) : {}
+	);
+	const dropInValues = $derived(
+		form?.mode === 'registerDropIn' ? (form.values ?? null) : null
+	);
+	const dropInMessage = $derived(
+		form?.mode === 'registerDropIn' ? (form.message ?? null) : null
+	);
 
 	$effect.pre(() => {
 		selectedCourseId = data.course ? String(data.course.id) : '';
 		sessionDate = data.sessionDate;
 		showSavedNotice = false;
+		showDropInNotice = false;
+		showDropInAttendedNotice = false;
 
 		const nextStatuses: Record<number, AttendanceStatus | ''> = {};
 		for (const member of data.members) {
@@ -55,9 +72,19 @@
 		const params = new URLSearchParams(window.location.search);
 		if (params.get('saved') === '1') {
 			showSavedNotice = true;
+			showDropInNotice = params.get('dropIn') === '1';
+			showDropInAttendedNotice = params.get('attended') === '1';
 			params.delete('saved');
+			params.delete('dropIn');
+			params.delete('attended');
 			const nextUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
 			history.replaceState({}, '', nextUrl);
+		}
+	});
+
+	$effect(() => {
+		if (form?.mode === 'registerDropIn' && (form.errors || form.message)) {
+			dropInDialogOpen = true;
 		}
 	});
 
@@ -98,7 +125,7 @@
 			<h2 class="text-2xl font-bold tracking-tight">Registrar asistencia</h2>
 			<p class="text-muted-foreground text-sm">
 				Marca asistencia o falta por alumno. El full pass descuenta {FULL_PASS_HOURS_PER_CLASS} h
-				por clase asistida.
+				por clase asistida. Usa el registro rápido para alumnos que pagan por clase sin inscripción.
 			</p>
 		</div>
 		<Button variant="outline" href="/dashboard/grupos">
@@ -111,7 +138,15 @@
 		<Card.Root class="border-primary/30 bg-primary/5">
 			<Card.Content class="flex items-center gap-2 py-4 text-sm">
 				<CheckIcon />
-				<span>La asistencia se guardó correctamente.</span>
+				<span>
+					{#if showDropInNotice && showDropInAttendedNotice}
+						El pago por clase y la asistencia se registraron correctamente.
+					{:else if showDropInNotice}
+						El pago por clase se registró correctamente.
+					{:else}
+						La asistencia se guardó correctamente.
+					{/if}
+				</span>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -160,16 +195,27 @@
 
 	{#if data.course}
 		<Card.Root>
-			<Card.Header>
-				<Card.Title>{data.course.name}</Card.Title>
-				<Card.Description>
-					{data.sessionDateLabel} · {data.course.schedule} · {formatCourseDays(data.course.days)}
-				</Card.Description>
+			<Card.Header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div>
+					<Card.Title>{data.course.name}</Card.Title>
+					<Card.Description>
+						{data.sessionDateLabel} · {data.course.schedule} · {formatCourseDays(data.course.days)}
+					</Card.Description>
+				</div>
+				<Button variant="secondary" onclick={() => (dropInDialogOpen = true)}>
+					<UserPlusIcon data-icon="inline-start" />
+					Pago por clase
+				</Button>
 			</Card.Header>
 			<Card.Content>
 				{#if data.members.length === 0}
 					<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
 						No hay alumnos inscritos con vigencia activa en este curso.
+						{#if data.eligibleStudents.length > 0 && data.dropInPlans.length > 0}
+							<span class="mt-2 block">
+								Usa "Pago por clase" para registrar un alumno que paga sin inscripción.
+							</span>
+						{/if}
 					</div>
 				{:else}
 					<form
@@ -257,5 +303,17 @@
 				{/if}
 			</Card.Content>
 		</Card.Root>
+
+		<DropInQuickRegisterDialog
+			bind:open={dropInDialogOpen}
+			courseId={data.course.id}
+			sessionDate={data.sessionDate}
+			students={data.eligibleStudents}
+			dropInPlans={data.dropInPlans}
+			paymentMethods={data.paymentMethods}
+			errors={dropInErrors}
+			values={dropInValues}
+			message={dropInMessage}
+		/>
 	{/if}
 </div>

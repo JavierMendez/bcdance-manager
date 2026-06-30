@@ -1,7 +1,8 @@
-import { formatFullPassCoverage } from '$lib/groups.js';
+import { formatDropInCoverage, formatFullPassCoverage } from '$lib/groups.js';
 
 export const ATTENDANCE_STATUSES = ['attended', 'absent'] as const;
 export const FULL_PASS_HOURS_PER_CLASS = 1;
+export const DROP_IN_CLASSES_PER_SESSION = 1;
 
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
@@ -23,8 +24,9 @@ export type AttendanceMember = {
 	planName: string;
 	coverageLabel: string;
 	entitlementId: number;
-	entitlementType: 'monthly_plan' | 'full_pass';
+	entitlementType: 'monthly_plan' | 'full_pass' | 'drop_in';
 	hoursRemaining: number | null;
+	classesRemaining: number | null;
 	currentStatus: AttendanceStatus | null;
 };
 
@@ -34,6 +36,7 @@ type EntitlementSnapshot = {
 	courseId: number | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
+	classesRemaining: number | null;
 	planName: string;
 	student: {
 		id: number;
@@ -103,10 +106,15 @@ export function parseAttendanceEntries(raw: string): {
 export function resolveAttendanceEntitlement(
 	courseId: number,
 	monthly: EntitlementSnapshot | null,
+	dropIn: EntitlementSnapshot | null,
 	fullPass: EntitlementSnapshot | null
 ): EntitlementSnapshot | null {
 	if (monthly?.courseId === courseId) {
 		return monthly;
+	}
+
+	if (dropIn?.courseId === courseId && (dropIn.classesRemaining ?? 0) > 0) {
+		return dropIn;
 	}
 
 	if (fullPass && (fullPass.hoursRemaining ?? 0) > 0) {
@@ -123,11 +131,20 @@ export function buildAttendanceMembers(
 	_now = new Date()
 ): AttendanceMember[] {
 	const monthlyByStudent = new Map<number, EntitlementSnapshot>();
+	const dropInByStudent = new Map<number, EntitlementSnapshot>();
 	const fullPassByStudent = new Map<number, EntitlementSnapshot>();
 
 	for (const row of entitlements) {
 		if (row.entitlementType === 'monthly_plan' && row.courseId === courseId) {
 			monthlyByStudent.set(row.student.id, row);
+		}
+
+		if (
+			row.entitlementType === 'drop_in' &&
+			row.courseId === courseId &&
+			(row.classesRemaining ?? 0) > 0
+		) {
+			dropInByStudent.set(row.student.id, row);
 		}
 
 		if (row.entitlementType === 'full_pass' && (row.hoursRemaining ?? 0) > 0) {
@@ -137,6 +154,7 @@ export function buildAttendanceMembers(
 
 	const studentIds = new Set<number>([
 		...monthlyByStudent.keys(),
+		...dropInByStudent.keys(),
 		...fullPassByStudent.keys()
 	]);
 
@@ -146,6 +164,7 @@ export function buildAttendanceMembers(
 		const entitlement = resolveAttendanceEntitlement(
 			courseId,
 			monthlyByStudent.get(studentId) ?? null,
+			dropInByStudent.get(studentId) ?? null,
 			fullPassByStudent.get(studentId) ?? null
 		);
 
@@ -154,11 +173,12 @@ export function buildAttendanceMembers(
 		}
 
 		const isMonthly = entitlement.entitlementType === 'monthly_plan';
+		const isDropIn = entitlement.entitlementType === 'drop_in';
 
 		members.push({
 			studentId,
 			fullName: entitlement.student.fullName,
-			modalityLabel: isMonthly ? 'Plan mensual' : 'Full pass',
+			modalityLabel: isMonthly ? 'Plan mensual' : isDropIn ? 'Por clase' : 'Full pass',
 			planName: entitlement.planName,
 			coverageLabel: isMonthly
 				? entitlement.endsAt
@@ -168,10 +188,13 @@ export function buildAttendanceMembers(
 							year: 'numeric'
 						}).format(entitlement.endsAt)}`
 					: 'Sin vigencia'
-				: formatFullPassCoverage(entitlement.hoursRemaining),
+				: isDropIn
+					? formatDropInCoverage(entitlement.classesRemaining)
+					: formatFullPassCoverage(entitlement.hoursRemaining),
 			entitlementId: entitlement.id,
-			entitlementType: isMonthly ? 'monthly_plan' : 'full_pass',
+			entitlementType: isMonthly ? 'monthly_plan' : isDropIn ? 'drop_in' : 'full_pass',
 			hoursRemaining: entitlement.hoursRemaining,
+			classesRemaining: entitlement.classesRemaining,
 			currentStatus: attendanceByStudent.get(studentId) ?? null
 		});
 	}

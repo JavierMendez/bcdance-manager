@@ -14,6 +14,7 @@ import type { PlanType } from '$lib/payment-plans.js';
 import {
 	addOneMonth,
 	calculateWizardTotal,
+	DROP_IN_DEFAULT_CLASSES,
 	FULL_PASS_DEFAULT_HOURS,
 	PAYMENT_METHODS,
 	validatePaymentWizard,
@@ -32,6 +33,7 @@ function parseWizardForm(formData: FormData) {
 		courseId: String(formData.get('courseId') ?? ''),
 		monthlyPlanId: String(formData.get('monthlyPlanId') ?? ''),
 		fullPassPlanId: String(formData.get('fullPassPlanId') ?? ''),
+		dropInPlanId: String(formData.get('dropInPlanId') ?? ''),
 		paymentMethod: String(formData.get('paymentMethod') ?? '') as PaymentMethod,
 		paidAt: String(formData.get('paidAt') ?? ''),
 		notes: String(formData.get('notes') ?? '').trim()
@@ -96,40 +98,49 @@ export const actions: Actions = {
 			name: course.name
 		}));
 
-		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId } = validatePaymentWizard(
-			wizardData,
-			plans,
-			coursesList
-		);
+		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId, dropInPlanId } =
+			validatePaymentWizard(wizardData, plans, coursesList);
 
 		if (Object.keys(errors).length > 0) {
 			return fail(400, { errors, values: wizardData });
 		}
 
-		const [student] = await db
-			.select({ id: students.id, fullName: students.fullName })
-			.from(students)
-			.where(eq(students.id, studentId))
-			.limit(1);
+		const purchaseType = wizardData.purchaseType;
 
-		if (!student) {
-			return fail(400, { errors: { studentId: 'El alumno no existe.' }, values: wizardData });
+		if (studentId) {
+			const [student] = await db
+				.select({ id: students.id, fullName: students.fullName })
+				.from(students)
+				.where(eq(students.id, studentId))
+				.limit(1);
+
+			if (!student) {
+				return fail(400, { errors: { studentId: 'El alumno no existe.' }, values: wizardData });
+			}
+		} else if (purchaseType !== 'drop_in_only') {
+			return fail(400, { errors: { studentId: 'Selecciona un alumno.' }, values: wizardData });
 		}
 
-		const purchaseType = wizardData.purchaseType;
-		const totalAmount = calculateWizardTotal(purchaseType, plans, monthlyPlanId, fullPassPlanId);
+		const totalAmount = calculateWizardTotal(
+			purchaseType,
+			plans,
+			monthlyPlanId,
+			fullPassPlanId,
+			dropInPlanId
+		);
 		const paidAt = new Date(wizardData.paidAt);
 		const startsAt = paidAt;
 
 		const monthlyPlan = plans.find((plan) => plan.id === monthlyPlanId);
 		const fullPassPlan = plans.find((plan) => plan.id === fullPassPlanId);
+		const dropInPlan = plans.find((plan) => plan.id === dropInPlanId);
 		const course = coursesList.find((entry) => entry.id === courseId);
 
 		await db.transaction(async (tx) => {
 			const [payment] = await tx
 				.insert(payments)
 				.values({
-					studentId,
+					studentId: studentId ?? null,
 					purchaseType,
 					totalAmount,
 					paymentMethod: wizardData.paymentMethod,
@@ -139,7 +150,7 @@ export const actions: Actions = {
 				.returning();
 
 			if (purchaseType === 'monthly_only' || purchaseType === 'combined') {
-				if (!monthlyPlan || !course) {
+				if (!monthlyPlan || !course || !studentId) {
 					throw new Error('Missing monthly plan data');
 				}
 
@@ -164,7 +175,7 @@ export const actions: Actions = {
 			}
 
 			if (purchaseType === 'full_pass_only' || purchaseType === 'combined') {
-				if (!fullPassPlan) {
+				if (!fullPassPlan || !studentId) {
 					throw new Error('Missing full pass plan data');
 				}
 
@@ -187,6 +198,36 @@ export const actions: Actions = {
 					startsAt,
 					active: true
 				});
+			}
+
+			if (purchaseType === 'drop_in_only') {
+				if (!dropInPlan || !course) {
+					throw new Error('Missing drop-in plan data');
+				}
+
+				const classesGranted = dropInPlan.classesIncluded ?? DROP_IN_DEFAULT_CLASSES;
+
+				await tx.insert(paymentItems).values({
+					paymentId: payment.id,
+					itemType: 'drop_in',
+					paymentPlanId: dropInPlan.id,
+					courseId: course.id,
+					amount: dropInPlan.price,
+					classesGranted
+				});
+
+				if (studentId) {
+					await tx.insert(studentEntitlements).values({
+						studentId,
+						paymentId: payment.id,
+						entitlementType: 'drop_in',
+						paymentPlanId: dropInPlan.id,
+						courseId: course.id,
+						classesRemaining: classesGranted,
+						startsAt,
+						active: true
+					});
+				}
 			}
 		});
 
