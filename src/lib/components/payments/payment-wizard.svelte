@@ -17,8 +17,11 @@
 		PURCHASE_TYPES,
 		PURCHASE_TYPE_LABELS,
 		getPurchaseTypeDescription,
+		calculatePaymentTotals,
 		calculateWizardTotal,
 		buildPaymentSummary,
+		formatDiscountPercent,
+		parseDiscountPercent,
 		DROP_IN_DEFAULT_CLASSES,
 		FULL_PASS_DEFAULT_HOURS,
 		DROP_IN_GUEST_LABEL,
@@ -72,6 +75,7 @@
 	let dropInPlanId = $state('');
 	let paymentMethod = $state<PaymentMethod>('Efectivo');
 	let paidAt = $state('');
+	let discountPercent = $state('0');
 	let notes = $state('');
 	let stepErrors = $state<Partial<Record<keyof PaymentWizardData, string>>>({});
 
@@ -95,6 +99,7 @@
 		dropInPlanId,
 		paymentMethod,
 		paidAt,
+		discountPercent,
 		notes
 	} satisfies PaymentWizardData);
 
@@ -109,7 +114,7 @@
 	const selectedDropInPlan = $derived(
 		dropInPlans.find((plan) => plan.id === Number(dropInPlanId))
 	);
-	const totalAmount = $derived(
+	const subtotalAmount = $derived(
 		calculateWizardTotal(
 			purchaseType,
 			plans,
@@ -118,6 +123,10 @@
 			Number(dropInPlanId)
 		)
 	);
+	const paymentTotals = $derived.by(() => {
+		const parsed = parseDiscountPercent(discountPercent);
+		return calculatePaymentTotals(subtotalAmount, Number.isNaN(parsed) ? 0 : parsed);
+	});
 
 	const summary = $derived(
 		buildPaymentSummary(
@@ -128,7 +137,7 @@
 			selectedFullPassPlan?.name ?? null,
 			selectedDropInPlan?.name ?? null,
 			selectedDropInPlan?.classesIncluded ?? DROP_IN_DEFAULT_CLASSES,
-			totalAmount
+			paymentTotals
 		)
 	);
 
@@ -150,6 +159,7 @@
 			dropInPlanId = values.dropInPlanId;
 			paymentMethod = values.paymentMethod;
 			paidAt = values.paidAt;
+			discountPercent = values.discountPercent ?? '0';
 			notes = values.notes;
 		}
 	});
@@ -171,6 +181,7 @@
 			dropInPlanId: currentStep >= 2 && needsDropIn ? dropInPlanId : '',
 			paymentMethod: currentStep >= 3 ? paymentMethod : 'Efectivo',
 			paidAt: currentStep >= 3 ? paidAt : '',
+			discountPercent: currentStep >= 3 ? discountPercent : '0',
 			notes
 		};
 
@@ -192,6 +203,7 @@
 		if (currentStep === 3) {
 			if (validationErrors.paymentMethod) filtered.paymentMethod = validationErrors.paymentMethod;
 			if (validationErrors.paidAt) filtered.paidAt = validationErrors.paidAt;
+			if (validationErrors.discountPercent) filtered.discountPercent = validationErrors.discountPercent;
 		}
 
 		stepErrors = filtered;
@@ -266,6 +278,7 @@
 		<input type="hidden" name="dropInPlanId" value={dropInPlanId} />
 		<input type="hidden" name="paymentMethod" value={paymentMethod} />
 		<input type="hidden" name="paidAt" value={paidAt} />
+		<input type="hidden" name="discountPercent" value={discountPercent} />
 		<input type="hidden" name="notes" value={notes} />
 
 		<div class="rounded-xl border p-6">
@@ -467,9 +480,40 @@
 						<Textarea id="notes" bind:value={notes} placeholder="Observaciones opcionales" />
 					</Field>
 
-					<div class="bg-muted rounded-lg p-4">
-						<p class="text-sm font-medium">Total a registrar</p>
-						<p class="text-2xl font-bold">{formatPrice(totalAmount)}</p>
+					<Field data-invalid={stepErrors.discountPercent ? true : undefined}>
+						<FieldLabel for="discountPercent">Descuento (%)</FieldLabel>
+						<FieldDescription>Opcional. Porcentaje de descuento sobre el subtotal.</FieldDescription>
+						<Input
+							id="discountPercent"
+							type="number"
+							min="0"
+							max="100"
+							step="1"
+							bind:value={discountPercent}
+							placeholder="0"
+						/>
+						{#if stepErrors.discountPercent}
+							<FieldError>{stepErrors.discountPercent}</FieldError>
+						{/if}
+					</Field>
+
+					<div class="bg-muted space-y-2 rounded-lg p-4">
+						<div class="flex items-center justify-between text-sm">
+							<span class="text-muted-foreground">Subtotal</span>
+							<span>{formatPrice(paymentTotals.subtotalAmount)}</span>
+						</div>
+						{#if paymentTotals.discountPercent > 0}
+							<div class="flex items-center justify-between text-sm">
+								<span class="text-muted-foreground">
+									Descuento ({formatDiscountPercent(paymentTotals.discountPercent)})
+								</span>
+								<span class="text-destructive">-{formatPrice(paymentTotals.discountAmount)}</span>
+							</div>
+						{/if}
+						<div class="flex items-center justify-between border-t pt-2">
+							<span class="font-medium">Total a registrar</span>
+							<span class="text-2xl font-bold">{formatPrice(paymentTotals.totalAmount)}</span>
+						</div>
 					</div>
 				</FieldGroup>
 			{:else}
@@ -518,8 +562,26 @@
 							</div>
 						{/if}
 						<div class="rounded-lg border p-4 sm:col-span-2">
-							<p class="text-muted-foreground text-sm">Total</p>
-							<p class="text-2xl font-bold">{formatPrice(totalAmount)}</p>
+							<div class="space-y-2">
+								<div class="flex items-center justify-between text-sm">
+									<span class="text-muted-foreground">Subtotal</span>
+									<span>{formatPrice(paymentTotals.subtotalAmount)}</span>
+								</div>
+								{#if paymentTotals.discountPercent > 0}
+									<div class="flex items-center justify-between text-sm">
+										<span class="text-muted-foreground">
+											Descuento ({formatDiscountPercent(paymentTotals.discountPercent)})
+										</span>
+										<span class="text-destructive">
+											-{formatPrice(paymentTotals.discountAmount)}
+										</span>
+									</div>
+								{/if}
+								<div class="flex items-center justify-between border-t pt-2">
+									<span class="text-muted-foreground">Total</span>
+									<span class="text-2xl font-bold">{formatPrice(paymentTotals.totalAmount)}</span>
+								</div>
+							</div>
 						</div>
 					</div>
 

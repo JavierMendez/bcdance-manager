@@ -13,6 +13,7 @@ import type { BillingPeriod } from '$lib/payment-plans.js';
 import type { PlanType } from '$lib/payment-plans.js';
 import {
 	addOneMonth,
+	calculatePaymentTotals,
 	calculateWizardTotal,
 	DROP_IN_DEFAULT_CLASSES,
 	FULL_PASS_DEFAULT_HOURS,
@@ -36,6 +37,7 @@ function parseWizardForm(formData: FormData) {
 		dropInPlanId: String(formData.get('dropInPlanId') ?? ''),
 		paymentMethod: String(formData.get('paymentMethod') ?? '') as PaymentMethod,
 		paidAt: String(formData.get('paidAt') ?? ''),
+		discountPercent: String(formData.get('discountPercent') ?? '0'),
 		notes: String(formData.get('notes') ?? '').trim()
 	};
 }
@@ -98,7 +100,7 @@ export const actions: Actions = {
 			name: course.name
 		}));
 
-		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId, dropInPlanId } =
+		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId, dropInPlanId, discountPercent } =
 			validatePaymentWizard(wizardData, plans, coursesList);
 
 		if (Object.keys(errors).length > 0) {
@@ -121,13 +123,14 @@ export const actions: Actions = {
 			return fail(400, { errors: { studentId: 'Selecciona un alumno.' }, values: wizardData });
 		}
 
-		const totalAmount = calculateWizardTotal(
+		const subtotalAmount = calculateWizardTotal(
 			purchaseType,
 			plans,
 			monthlyPlanId,
 			fullPassPlanId,
 			dropInPlanId
 		);
+		const paymentTotals = calculatePaymentTotals(subtotalAmount, discountPercent);
 		const paidAt = new Date(wizardData.paidAt);
 		const startsAt = paidAt;
 
@@ -142,7 +145,9 @@ export const actions: Actions = {
 				.values({
 					studentId: studentId ?? null,
 					purchaseType,
-					totalAmount,
+					subtotalAmount: paymentTotals.subtotalAmount,
+					discountPercent: paymentTotals.discountPercent,
+					totalAmount: paymentTotals.totalAmount,
 					paymentMethod: wizardData.paymentMethod,
 					notes: wizardData.notes || null,
 					paidAt

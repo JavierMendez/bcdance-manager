@@ -1,4 +1,5 @@
 import { formatDropInCoverage, formatFullPassCoverage } from '$lib/groups.js';
+import { APP_LOCALE } from '$lib/locale.js';
 
 export const ATTENDANCE_STATUSES = ['attended', 'absent'] as const;
 export const FULL_PASS_HOURS_PER_CLASS = 1;
@@ -51,7 +52,7 @@ export function getTodaySessionDate(now = new Date()) {
 
 export function formatSessionDate(dateValue: string) {
 	const [year, month, day] = dateValue.split('-').map(Number);
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		weekday: 'long',
 		day: '2-digit',
 		month: 'long',
@@ -182,7 +183,7 @@ export function buildAttendanceMembers(
 			planName: entitlement.planName,
 			coverageLabel: isMonthly
 				? entitlement.endsAt
-					? `Vence el ${new Intl.DateTimeFormat('es-CL', {
+					? `Vence el ${new Intl.DateTimeFormat(APP_LOCALE, {
 							day: '2-digit',
 							month: 'long',
 							year: 'numeric'

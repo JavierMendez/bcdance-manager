@@ -156,7 +156,7 @@
 							required
 							aria-invalid={errors.price ? true : undefined}
 						/>
-						<FieldDescription>Precio en pesos chilenos (CLP).</FieldDescription>
+						<FieldDescription>Precio en pesos mexicanos (MXN).</FieldDescription>
 						{#if errors.price}
 							<FieldError>{errors.price}</FieldError>
 						{/if}

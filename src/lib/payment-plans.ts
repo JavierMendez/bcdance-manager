@@ -133,10 +133,12 @@ export function validatePaymentPlanInput(data: PaymentPlanFormValues) {
 	};
 }
 
+import { APP_LOCALE, PAYMENT_CURRENCY } from '$lib/locale.js';
+
 export function formatPrice(price: number) {
-	return new Intl.NumberFormat('es-CL', {
+	return new Intl.NumberFormat(APP_LOCALE, {
 		style: 'currency',
-		currency: 'CLP',
+		currency: PAYMENT_CURRENCY,
 		maximumFractionDigits: 0
 	}).format(price);
 }

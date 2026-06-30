@@ -10,6 +10,8 @@ export const payments = pgTable('payments', {
 	id: serial('id').primaryKey(),
 	studentId: integer('student_id').references(() => students.id),
 	purchaseType: text('purchase_type').notNull(),
+	subtotalAmount: integer('subtotal_amount').notNull(),
+	discountPercent: integer('discount_percent').notNull().default(0),
 	totalAmount: integer('total_amount').notNull(),
 	paymentMethod: text('payment_method').notNull(),
 	notes: text('notes'),

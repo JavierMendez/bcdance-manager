@@ -1,4 +1,5 @@
 import { formatCourseDate, formatCourseDays, type SerializedCourse, type Weekday } from '$lib/courses.js';
+import { APP_LOCALE } from '$lib/locale.js';
 import {
 	PAYMENT_EXPIRING_SOON_DAYS,
 	PAYMENT_STATUS_LABELS,
@@ -87,7 +88,7 @@ export function formatMonthlyCoverage(endsAt: Date | null) {
 		return 'Sin vigencia';
 	}
 
-	return `Vence el ${new Intl.DateTimeFormat('es-CL', {
+	return `Vence el ${new Intl.DateTimeFormat(APP_LOCALE, {
 		day: '2-digit',
 		month: 'long',
 		year: 'numeric'

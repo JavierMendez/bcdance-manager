@@ -20,6 +20,8 @@ function serializePayment(
 		studentId: payment.studentId,
 		studentName: formatStudentName(studentName),
 		purchaseType: payment.purchaseType as PurchaseType,
+		subtotalAmount: payment.subtotalAmount,
+		discountPercent: payment.discountPercent,
 		totalAmount: payment.totalAmount,
 		paymentMethod: payment.paymentMethod as PaymentMethod,
 		notes: payment.notes,

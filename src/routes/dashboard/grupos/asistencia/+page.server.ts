@@ -13,6 +13,7 @@ import { type Weekday } from '$lib/courses.js';
 import type { BillingPeriod } from '$lib/payment-plans.js';
 import type { PlanType } from '$lib/payment-plans.js';
 import {
+	calculatePaymentTotals,
 	DROP_IN_DEFAULT_CLASSES,
 	PAYMENT_METHODS,
 	validateQuickDropInRegistration,
@@ -46,6 +47,7 @@ function parseQuickDropInForm(formData: FormData): QuickDropInFormData {
 		studentId: String(formData.get('studentId') ?? ''),
 		dropInPlanId: String(formData.get('dropInPlanId') ?? ''),
 		paymentMethod: String(formData.get('paymentMethod') ?? '') as PaymentMethod,
+		discountPercent: String(formData.get('discountPercent') ?? '0'),
 		notes: String(formData.get('notes') ?? '').trim()
 	};
 }
@@ -442,7 +444,7 @@ export const actions: Actions = {
 			.map((student) => student.id);
 
 		const dropInPlans = serializeDropInPlans(planRows).filter((plan) => plan.planType === 'drop_in');
-		const { errors, studentId, dropInPlanId } = validateQuickDropInRegistration(
+		const { errors, studentId, dropInPlanId, discountPercent } = validateQuickDropInRegistration(
 			quickDropInData,
 			dropInPlans,
 			eligibleStudentIds
@@ -467,6 +469,7 @@ export const actions: Actions = {
 		}
 
 		const classesGranted = dropInPlan.classesIncluded ?? DROP_IN_DEFAULT_CLASSES;
+		const paymentTotals = calculatePaymentTotals(dropInPlan.price, discountPercent);
 
 		if (studentId && classesGranted < DROP_IN_CLASSES_PER_SESSION) {
 			return fail(400, {
@@ -488,7 +491,9 @@ export const actions: Actions = {
 					.values({
 						studentId: studentId ?? null,
 						purchaseType: 'drop_in_only',
-						totalAmount: dropInPlan.price,
+						subtotalAmount: paymentTotals.subtotalAmount,
+						discountPercent: paymentTotals.discountPercent,
+						totalAmount: paymentTotals.totalAmount,
 						paymentMethod: quickDropInData.paymentMethod,
 						notes: quickDropInData.notes || null,
 						paidAt

@@ -7,12 +7,16 @@
 		FieldDescription,
 		FieldError
 	} from '$lib/components/ui/field/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatPrice } from '$lib/payment-plans.js';
 	import {
+		calculatePaymentTotals,
 		DROP_IN_DEFAULT_CLASSES,
 		DROP_IN_GUEST_LABEL,
+		formatDiscountPercent,
+		parseDiscountPercent,
 		type PaymentMethod,
 		type QuickDropInFormData,
 		type WizardPaymentPlan,
@@ -50,10 +54,16 @@
 	let studentId = $state('');
 	let dropInPlanId = $state('');
 	let paymentMethod = $state<PaymentMethod>('Efectivo');
+	let discountPercent = $state('0');
 	let notes = $state('');
 	let submitting = $state(false);
 
 	const selectedPlan = $derived(dropInPlans.find((plan) => plan.id === Number(dropInPlanId)));
+	const paymentTotals = $derived.by(() => {
+		const subtotal = selectedPlan?.price ?? 0;
+		const parsed = parseDiscountPercent(discountPercent);
+		return calculatePaymentTotals(subtotal, Number.isNaN(parsed) ? 0 : parsed);
+	});
 	const submitLabel = $derived(
 		studentId ? 'Registrar pago y asistencia' : 'Registrar pago'
 	);
@@ -63,6 +73,7 @@
 			studentId = values?.studentId ?? '';
 			dropInPlanId = values?.dropInPlanId ?? '';
 			paymentMethod = values?.paymentMethod ?? 'Efectivo';
+			discountPercent = values?.discountPercent ?? '0';
 			notes = values?.notes ?? '';
 		}
 	});
@@ -186,6 +197,24 @@
 					{/if}
 				</Field>
 
+				<Field data-invalid={errors.discountPercent ? true : undefined}>
+					<FieldLabel for="discountPercent-{formId}">Descuento (%)</FieldLabel>
+					<FieldDescription>Opcional. Porcentaje de descuento sobre el subtotal.</FieldDescription>
+					<Input
+						id="discountPercent-{formId}"
+						name="discountPercent"
+						type="number"
+						min="0"
+						max="100"
+						step="1"
+						bind:value={discountPercent}
+						placeholder="0"
+					/>
+					{#if errors.discountPercent}
+						<FieldError>{errors.discountPercent}</FieldError>
+					{/if}
+				</Field>
+
 				<Field>
 					<FieldLabel for="notes-{formId}">Notas</FieldLabel>
 					<Textarea
@@ -197,10 +226,24 @@
 				</Field>
 
 				{#if selectedPlan}
-					<div class="bg-muted rounded-lg p-4">
-						<p class="text-sm font-medium">Total a registrar</p>
-						<p class="text-2xl font-bold">{formatPrice(selectedPlan.price)}</p>
-						<p class="text-muted-foreground mt-1 text-xs">
+					<div class="bg-muted space-y-2 rounded-lg p-4">
+						<div class="flex items-center justify-between text-sm">
+							<span class="text-muted-foreground">Subtotal</span>
+							<span>{formatPrice(paymentTotals.subtotalAmount)}</span>
+						</div>
+						{#if paymentTotals.discountPercent > 0}
+							<div class="flex items-center justify-between text-sm">
+								<span class="text-muted-foreground">
+									Descuento ({formatDiscountPercent(paymentTotals.discountPercent)})
+								</span>
+								<span class="text-destructive">-{formatPrice(paymentTotals.discountAmount)}</span>
+							</div>
+						{/if}
+						<div class="flex items-center justify-between border-t pt-2">
+							<span class="font-medium">Total a registrar</span>
+							<span class="text-2xl font-bold">{formatPrice(paymentTotals.totalAmount)}</span>
+						</div>
+						<p class="text-muted-foreground text-xs">
 							{#if studentId}
 								Se descontará 1 clase al marcar asistencia en esta sesión.
 							{:else}

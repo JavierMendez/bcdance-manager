@@ -1,3 +1,5 @@
+import { APP_LOCALE } from '$lib/locale.js';
+
 export const WEEKDAYS = [
 	'Lunes',
 	'Martes',
@@ -76,7 +78,7 @@ export function validateCourseInput(data: CourseFormValues) {
 
 export function formatCourseDate(dateValue: string) {
 	const [year, month, day] = dateValue.split('-').map(Number);
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		day: '2-digit',
 		month: 'long',
 		year: 'numeric'

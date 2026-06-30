@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatPrice } from '$lib/payment-plans.js';
 	import {
+		formatDiscountPercent,
 		formatPaymentDate,
 		PURCHASE_TYPE_LABELS,
 		type PurchaseType
@@ -54,8 +55,17 @@
 								{PURCHASE_TYPE_LABELS[payment.purchaseType as PurchaseType]}
 							</Table.Cell>
 							<Table.Cell>{payment.paymentMethod}</Table.Cell>
-							<Table.Cell class="text-end font-medium">
-								{formatPrice(payment.totalAmount)}
+							<Table.Cell class="text-end">
+								<div class="flex flex-col items-end gap-0.5">
+									<span class="font-medium">{formatPrice(payment.totalAmount)}</span>
+									{#if payment.discountPercent > 0}
+										<span class="text-muted-foreground text-xs">
+											-{formatDiscountPercent(payment.discountPercent)} ({formatPrice(
+												payment.subtotalAmount
+											)})
+										</span>
+									{/if}
+								</div>
 							</Table.Cell>
 						</Table.Row>
 					{/each}

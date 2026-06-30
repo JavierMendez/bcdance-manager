@@ -1,3 +1,5 @@
+import { APP_LOCALE } from '$lib/locale.js';
+
 export type SerializedStudent = {
 	id: number;
 	fullName: string;
@@ -41,7 +43,7 @@ export function validateStudentInput(data: {
 }
 
 export function formatEnrollmentDate(isoDate: string) {
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		day: '2-digit',
 		month: 'long',
 		year: 'numeric'

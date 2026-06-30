@@ -1,4 +1,5 @@
 import { formatPrice } from '$lib/payment-plans.js';
+import { APP_LOCALE } from '$lib/locale.js';
 import {
 	PAYMENT_STATUS_LABELS,
 	type PaymentStatus,
@@ -66,7 +67,7 @@ export function buildMonthlyRevenueChart(
 	for (let offset = months - 1; offset >= 0; offset -= 1) {
 		const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
 		const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-		const monthLabel = new Intl.DateTimeFormat('es-CL', { month: 'short' }).format(date);
+		const monthLabel = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short' }).format(date);
 		const monthPayments = payments.filter((payment) => {
 			const paidAt = payment.paidAt;
 			return (
@@ -97,7 +98,7 @@ export function buildPaymentStatusChart(counts: Record<PaymentStatus, number>): 
 
 export function formatDashboardMonthLabel(monthKey: string) {
 	const [year, month] = monthKey.split('-').map(Number);
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		month: 'long',
 		year: 'numeric'
 	}).format(new Date(year, month - 1, 1));
@@ -108,7 +109,7 @@ export function formatDashboardCurrency(amount: number) {
 }
 
 export function formatRecentPaymentDate(isoDate: string) {
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		day: '2-digit',
 		month: 'short',
 		year: 'numeric'

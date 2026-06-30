@@ -1,4 +1,5 @@
 import type { BillingPeriod } from '$lib/payment-plans.js';
+import { APP_LOCALE } from '$lib/locale.js';
 import { formatPrice } from '$lib/payment-plans.js';
 
 export const FULL_PASS_DEFAULT_HOURS = 12;
@@ -125,7 +126,15 @@ export type PaymentWizardData = {
 	dropInPlanId: string;
 	paymentMethod: PaymentMethod;
 	paidAt: string;
+	discountPercent: string;
 	notes: string;
+};
+
+export type PaymentTotals = {
+	subtotalAmount: number;
+	discountPercent: number;
+	discountAmount: number;
+	totalAmount: number;
 };
 
 export type SerializedPayment = {
@@ -133,6 +142,8 @@ export type SerializedPayment = {
 	studentId: number | null;
 	studentName: string;
 	purchaseType: PurchaseType;
+	subtotalAmount: number;
+	discountPercent: number;
 	totalAmount: number;
 	paymentMethod: PaymentMethod;
 	notes: string | null;
@@ -244,13 +255,19 @@ export function validatePaymentWizard(
 		errors.paidAt = 'La fecha de pago es obligatoria.';
 	}
 
+	const discountPercent = parseDiscountPercent(data.discountPercent);
+	if (Number.isNaN(discountPercent)) {
+		errors.discountPercent = 'Ingresa un descuento válido entre 0 y 100.';
+	}
+
 	return {
 		errors,
 		studentId,
 		courseId,
 		monthlyPlanId,
 		fullPassPlanId,
-		dropInPlanId
+		dropInPlanId,
+		discountPercent: Number.isNaN(discountPercent) ? 0 : discountPercent
 	};
 }
 
@@ -278,6 +295,39 @@ export function calculateWizardTotal(
 	return total;
 }
 
+export function parseDiscountPercent(value: string): number {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return 0;
+	}
+
+	const parsed = Number(trimmed);
+	if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+		return NaN;
+	}
+
+	return parsed;
+}
+
+export function calculatePaymentTotals(
+	subtotalAmount: number,
+	discountPercent: number
+): PaymentTotals {
+	const discountAmount = Math.round(subtotalAmount * discountPercent / 100);
+	const totalAmount = subtotalAmount - discountAmount;
+
+	return {
+		subtotalAmount,
+		discountPercent,
+		discountAmount,
+		totalAmount
+	};
+}
+
+export function formatDiscountPercent(discountPercent: number) {
+	return `${discountPercent}%`;
+}
+
 export function buildPaymentSummary(
 	purchaseType: PurchaseType,
 	studentName: string,
@@ -286,7 +336,7 @@ export function buildPaymentSummary(
 	fullPassPlanName: string | null,
 	dropInPlanName: string | null,
 	dropInClasses: number | null,
-	totalAmount: number
+	totals: PaymentTotals
 ) {
 	const parts: string[] = [studentName || DROP_IN_GUEST_LABEL];
 
@@ -305,7 +355,13 @@ export function buildPaymentSummary(
 		);
 	}
 
-	parts.push(formatPrice(totalAmount));
+	if (totals.discountPercent > 0) {
+		parts.push(
+			`Descuento ${formatDiscountPercent(totals.discountPercent)} (-${formatPrice(totals.discountAmount)})`
+		);
+	}
+
+	parts.push(formatPrice(totals.totalAmount));
 	return parts.join(' · ');
 }
 
@@ -313,6 +369,7 @@ export type QuickDropInFormData = {
 	studentId: string;
 	dropInPlanId: string;
 	paymentMethod: PaymentMethod;
+	discountPercent: string;
 	notes: string;
 };
 
@@ -342,7 +399,17 @@ export function validateQuickDropInRegistration(
 		errors.paymentMethod = 'Selecciona un método de pago.';
 	}
 
-	return { errors, studentId, dropInPlanId };
+	const discountPercent = parseDiscountPercent(data.discountPercent);
+	if (Number.isNaN(discountPercent)) {
+		errors.discountPercent = 'Ingresa un descuento válido entre 0 y 100.';
+	}
+
+	return {
+		errors,
+		studentId,
+		dropInPlanId,
+		discountPercent: Number.isNaN(discountPercent) ? 0 : discountPercent
+	};
 }
 
 export function formatStudentName(studentName: string | null | undefined) {
@@ -350,7 +417,7 @@ export function formatStudentName(studentName: string | null | undefined) {
 }
 
 export function formatPaymentDate(isoDate: string) {
-	return new Intl.DateTimeFormat('es-CL', {
+	return new Intl.DateTimeFormat(APP_LOCALE, {
 		day: '2-digit',
 		month: 'long',
 		year: 'numeric',
