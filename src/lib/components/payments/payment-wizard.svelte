@@ -46,6 +46,7 @@
 		courses,
 		plans,
 		paymentMethods,
+		initialGroupId = '',
 		errors = {},
 		values = null
 	}: {
@@ -53,6 +54,7 @@
 		courses: WizardCourse[];
 		plans: WizardPaymentPlan[];
 		paymentMethods: readonly PaymentMethod[];
+		initialGroupId?: string;
 		errors?: Partial<Record<keyof PaymentWizardData, string>>;
 		values?: PaymentWizardData | null;
 	} = $props();
@@ -162,6 +164,8 @@
 			paidAt = values.paidAt;
 			discountPercent = values.discountPercent ?? '0';
 			notes = values.notes;
+		} else if (initialGroupId) {
+			courseId = initialGroupId;
 		}
 	});
 
@@ -274,6 +278,7 @@
 		<input type="hidden" name="studentId" value={studentId} />
 		<input type="hidden" name="purchaseType" value={purchaseType} />
 		<input type="hidden" name="courseId" value={courseId} />
+		<input type="hidden" name="groupId" value={courseId} />
 		<input type="hidden" name="monthlyPlanId" value={monthlyPlanId} />
 		<input type="hidden" name="fullPassPlanId" value={fullPassPlanId} />
 		<input type="hidden" name="dropInPlanId" value={dropInPlanId} />
@@ -332,13 +337,13 @@
 				<FieldGroup>
 					{#if needsMonthly}
 						<Field data-invalid={stepErrors.courseId ? true : undefined}>
-							<FieldLabel for="courseId">Curso</FieldLabel>
+							<FieldLabel for="courseId">Clase</FieldLabel>
 							<select
 								id="courseId"
 								bind:value={courseId}
 								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
 							>
-								<option value="">Selecciona un curso</option>
+								<option value="">Selecciona una clase</option>
 								{#each courses as course (course.id)}
 									<option value={String(course.id)}>{course.name}</option>
 								{/each}
@@ -402,16 +407,16 @@
 
 					{#if needsDropIn}
 						<Field data-invalid={stepErrors.courseId ? true : undefined}>
-							<FieldLabel for="courseId">Curso</FieldLabel>
+							<FieldLabel for="courseId">Clase</FieldLabel>
 							<FieldDescription>
-								Curso al que asistirá el alumno con este pago por clase.
+								Clase a la que asistirá el alumno con este pago por clase.
 							</FieldDescription>
 							<select
 								id="courseId"
 								bind:value={courseId}
 								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
 							>
-								<option value="">Selecciona un curso</option>
+								<option value="">Selecciona una clase</option>
 								{#each courses as course (course.id)}
 									<option value={String(course.id)}>{course.name}</option>
 								{/each}

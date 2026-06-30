@@ -35,7 +35,7 @@ export type AttendanceMember = {
 type EntitlementSnapshot = {
 	id: number;
 	entitlementType: string;
-	courseId: number | null;
+	groupId: number | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
@@ -106,18 +106,18 @@ export function parseAttendanceEntries(raw: string): {
 }
 
 export function resolveAttendanceEntitlement(
-	courseId: number,
+	groupId: number,
 	monthly: EntitlementSnapshot | null,
 	dropIn: EntitlementSnapshot | null,
 	fullPass: EntitlementSnapshot | null,
 	hasSessionAttendance = false
 ): EntitlementSnapshot | null {
-	if (monthly?.courseId === courseId) {
+	if (monthly?.groupId === groupId) {
 		return monthly;
 	}
 
 	if (
-		dropIn?.courseId === courseId &&
+		dropIn?.groupId === groupId &&
 		((dropIn.classesRemaining ?? 0) > 0 || hasSessionAttendance)
 	) {
 		return dropIn;
@@ -131,7 +131,7 @@ export function resolveAttendanceEntitlement(
 }
 
 export function buildAttendanceMembers(
-	courseId: number,
+	groupId: number,
 	entitlements: EntitlementSnapshot[],
 	attendanceByStudent: Map<number, AttendanceStatus>,
 	_now = new Date()
@@ -141,13 +141,13 @@ export function buildAttendanceMembers(
 	const fullPassByStudent = new Map<number, EntitlementSnapshot>();
 
 	for (const row of entitlements) {
-		if (row.entitlementType === 'monthly_plan' && row.courseId === courseId) {
+		if (row.entitlementType === 'monthly_plan' && row.groupId === groupId) {
 			monthlyByStudent.set(row.student.id, row);
 		}
 
 		if (
 			row.entitlementType === 'drop_in' &&
-			row.courseId === courseId &&
+			row.groupId === groupId &&
 			((row.classesRemaining ?? 0) > 0 || attendanceByStudent.has(row.student.id))
 		) {
 			dropInByStudent.set(row.student.id, row);
@@ -169,7 +169,7 @@ export function buildAttendanceMembers(
 	for (const studentId of studentIds) {
 		const hasSessionAttendance = attendanceByStudent.has(studentId);
 		const entitlement = resolveAttendanceEntitlement(
-			courseId,
+			groupId,
 			monthlyByStudent.get(studentId) ?? null,
 			dropInByStudent.get(studentId) ?? null,
 			fullPassByStudent.get(studentId) ?? null,

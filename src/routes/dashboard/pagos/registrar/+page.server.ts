@@ -2,7 +2,8 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
 import {
-	courses,
+	groups,
+	programs,
 	paymentItems,
 	paymentPlans,
 	payments,
@@ -31,7 +32,7 @@ function parseWizardForm(formData: FormData) {
 	return {
 		studentId: String(formData.get('studentId') ?? ''),
 		purchaseType: String(formData.get('purchaseType') ?? '') as PurchaseType,
-		courseId: String(formData.get('courseId') ?? ''),
+		courseId: String(formData.get('courseId') ?? formData.get('groupId') ?? ''),
 		monthlyPlanId: String(formData.get('monthlyPlanId') ?? ''),
 		fullPassPlanId: String(formData.get('fullPassPlanId') ?? ''),
 		dropInPlanId: String(formData.get('dropInPlanId') ?? ''),
@@ -42,10 +43,27 @@ function parseWizardForm(formData: FormData) {
 	};
 }
 
+async function loadClassOptions(db: ReturnType<typeof getDb>): Promise<WizardCourse[]> {
+	const rows = await db
+		.select({
+			id: groups.id,
+			name: programs.name,
+			schedule: groups.schedule
+		})
+		.from(groups)
+		.innerJoin(programs, eq(groups.programId, programs.id))
+		.orderBy(programs.name);
+
+	return rows.map((row) => ({
+		id: row.id,
+		name: `${row.name} — ${row.schedule}`
+	}));
+}
+
 export const load: PageServerLoad = async () => {
 	const db = getDb();
 
-	const [studentRows, courseRows, planRows] = await Promise.all([
+	const [studentRows, classRows, planRows] = await Promise.all([
 		db
 			.select({
 				id: students.id,
@@ -54,13 +72,13 @@ export const load: PageServerLoad = async () => {
 			})
 			.from(students)
 			.where(eq(students.active, true)),
-		db.select({ id: courses.id, name: courses.name }).from(courses),
+		loadClassOptions(db),
 		db.select().from(paymentPlans)
 	]);
 
 	return {
 		students: studentRows as WizardStudent[],
-		courses: courseRows as WizardCourse[],
+		courses: classRows,
 		plans: planRows.map((plan) => ({
 			id: plan.id,
 			name: plan.name,
@@ -82,7 +100,7 @@ export const actions: Actions = {
 		const db = getDb();
 
 		const planRows = await db.select().from(paymentPlans);
-		const courseRows = await db.select({ id: courses.id, name: courses.name }).from(courses);
+		const coursesList = await loadClassOptions(db);
 
 		const plans: WizardPaymentPlan[] = planRows.map((plan) => ({
 			id: plan.id,
@@ -93,11 +111,6 @@ export const actions: Actions = {
 			billingPeriod: plan.billingPeriod as BillingPeriod,
 			classesIncluded: plan.classesIncluded,
 			hoursIncluded: plan.hoursIncluded
-		}));
-
-		const coursesList: WizardCourse[] = courseRows.map((course) => ({
-			id: course.id,
-			name: course.name
 		}));
 
 		const { errors, studentId, courseId, monthlyPlanId, fullPassPlanId, dropInPlanId, discountPercent } =
@@ -137,7 +150,7 @@ export const actions: Actions = {
 		const monthlyPlan = plans.find((plan) => plan.id === monthlyPlanId);
 		const fullPassPlan = plans.find((plan) => plan.id === fullPassPlanId);
 		const dropInPlan = plans.find((plan) => plan.id === dropInPlanId);
-		const course = coursesList.find((entry) => entry.id === courseId);
+		const classGroup = coursesList.find((entry) => entry.id === courseId);
 
 		await db.transaction(async (tx) => {
 			const [payment] = await tx
@@ -155,7 +168,7 @@ export const actions: Actions = {
 				.returning();
 
 			if (purchaseType === 'monthly_only' || purchaseType === 'combined') {
-				if (!monthlyPlan || !course || !studentId) {
+				if (!monthlyPlan || !classGroup || !studentId) {
 					throw new Error('Missing monthly plan data');
 				}
 
@@ -163,7 +176,7 @@ export const actions: Actions = {
 					paymentId: payment.id,
 					itemType: 'monthly_plan',
 					paymentPlanId: monthlyPlan.id,
-					courseId: course.id,
+					groupId: classGroup.id,
 					amount: monthlyPlan.price
 				});
 
@@ -172,7 +185,7 @@ export const actions: Actions = {
 					paymentId: payment.id,
 					entitlementType: 'monthly_plan',
 					paymentPlanId: monthlyPlan.id,
-					courseId: course.id,
+					groupId: classGroup.id,
 					startsAt,
 					endsAt: addOneMonth(startsAt),
 					active: true
@@ -206,7 +219,7 @@ export const actions: Actions = {
 			}
 
 			if (purchaseType === 'drop_in_only') {
-				if (!dropInPlan || !course) {
+				if (!dropInPlan || !classGroup) {
 					throw new Error('Missing drop-in plan data');
 				}
 
@@ -216,7 +229,7 @@ export const actions: Actions = {
 					paymentId: payment.id,
 					itemType: 'drop_in',
 					paymentPlanId: dropInPlan.id,
-					courseId: course.id,
+					groupId: classGroup.id,
 					amount: dropInPlan.price,
 					classesGranted
 				});
@@ -227,7 +240,7 @@ export const actions: Actions = {
 						paymentId: payment.id,
 						entitlementType: 'drop_in',
 						paymentPlanId: dropInPlan.id,
-						courseId: course.id,
+						groupId: classGroup.id,
 						classesRemaining: classesGranted,
 						startsAt,
 						active: true

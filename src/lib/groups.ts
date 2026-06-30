@@ -1,4 +1,4 @@
-import { formatCourseDate, formatCourseDays, type SerializedCourse, type Weekday } from '$lib/courses.js';
+import { formatCourseDate, formatCourseDays, type Weekday } from '$lib/courses.js';
 import { APP_LOCALE } from '$lib/locale.js';
 import {
 	PAYMENT_EXPIRING_SOON_DAYS,
@@ -6,6 +6,20 @@ import {
 	DROP_IN_GUEST_LABEL,
 	type PaymentStatus
 } from '$lib/payments.js';
+
+export type SerializedClassGroup = {
+	id: number;
+	programId: number;
+	name: string;
+	description: string;
+	schedule: string;
+	days: Weekday[];
+	startDate: string;
+	endDate: string;
+};
+
+/** @deprecated Use SerializedClassGroup */
+export type SerializedCourse = SerializedClassGroup;
 
 export type GroupMember = {
 	studentId: number;
@@ -18,7 +32,7 @@ export type GroupMember = {
 	paymentStatus: PaymentStatus;
 };
 
-export type CourseDropInPayment = {
+export type ClassDropInPayment = {
 	paymentId: number;
 	studentName: string;
 	planName: string;
@@ -27,23 +41,29 @@ export type CourseDropInPayment = {
 	paidAtLabel: string;
 };
 
-export type CourseGroup = SerializedCourse & {
+/** @deprecated Use ClassDropInPayment */
+export type CourseDropInPayment = ClassDropInPayment;
+
+export type ClassGroup = SerializedClassGroup & {
 	active: boolean;
 	enrolledCount: number;
 	dropInCount: number;
 	members: GroupMember[];
-	dropInPayments: CourseDropInPayment[];
+	dropInPayments: ClassDropInPayment[];
 };
 
+/** @deprecated Use ClassGroup */
+export type CourseGroup = ClassGroup;
+
 export type GroupsPageData = {
-	groups: CourseGroup[];
-	activeCourseCount: number;
+	groups: ClassGroup[];
+	activeClassCount: number;
 	totalEnrollments: number;
 };
 
 type EntitlementRow = {
 	entitlementType: string;
-	courseId: number | null;
+	groupId: number | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
@@ -56,13 +76,16 @@ type EntitlementRow = {
 	};
 };
 
-export function isCourseActive(
-	course: Pick<SerializedCourse, 'startDate' | 'endDate'>,
+export function isClassActive(
+	classGroup: Pick<SerializedClassGroup, 'startDate' | 'endDate'>,
 	now = new Date()
 ) {
 	const today = now.toISOString().slice(0, 10);
-	return course.startDate <= today && today <= course.endDate;
+	return classGroup.startDate <= today && today <= classGroup.endDate;
 }
+
+/** @deprecated Use isClassActive */
+export const isCourseActive = isClassActive;
 
 export function resolveEntitlementStatus(
 	entitlementType: string,
@@ -196,11 +219,11 @@ function buildMemberFromEntitlements(
 	};
 }
 
-export function buildCourseGroups(
-	courses: SerializedCourse[],
+export function buildClassGroups(
+	classes: SerializedClassGroup[],
 	entitlements: EntitlementRow[],
 	now = new Date()
-): CourseGroup[] {
+): ClassGroup[] {
 	const activeFullPassByStudent = new Map<number, EntitlementRow>();
 
 	for (const row of entitlements) {
@@ -215,11 +238,11 @@ export function buildCourseGroups(
 		activeFullPassByStudent.set(row.student.id, row);
 	}
 
-	return courses.map((course) => {
+	return classes.map((classGroup) => {
 		const membersByStudent = new Map<number, GroupMember>();
 
 		for (const row of entitlements) {
-			if (row.entitlementType !== 'monthly_plan' || row.courseId !== course.id) {
+			if (row.entitlementType !== 'monthly_plan' || row.groupId !== classGroup.id) {
 				continue;
 			}
 
@@ -232,7 +255,7 @@ export function buildCourseGroups(
 		}
 
 		for (const row of entitlements) {
-			if (row.entitlementType !== 'drop_in' || row.courseId !== course.id) {
+			if (row.entitlementType !== 'drop_in' || row.groupId !== classGroup.id) {
 				continue;
 			}
 
@@ -270,7 +293,7 @@ export function buildCourseGroups(
 			}
 		}
 
-		if (isCourseActive(course, now)) {
+		if (isClassActive(classGroup, now)) {
 			for (const [studentId, fullPassRow] of activeFullPassByStudent) {
 				if (membersByStudent.has(studentId)) {
 					continue;
@@ -291,8 +314,8 @@ export function buildCourseGroups(
 		const dropInCount = members.filter((member) => member.modalityLabel.includes('Por clase')).length;
 
 		return {
-			...course,
-			active: isCourseActive(course, now),
+			...classGroup,
+			active: isClassActive(classGroup, now),
 			enrolledCount: members.length,
 			dropInCount,
 			members,
@@ -301,18 +324,24 @@ export function buildCourseGroups(
 	});
 }
 
-export function formatGroupCourseMeta(course: Pick<CourseGroup, 'days' | 'startDate' | 'endDate'>) {
-	return `${formatCourseDays(course.days)} · ${formatCourseDate(course.startDate)} – ${formatCourseDate(course.endDate)}`;
+/** @deprecated Use buildClassGroups */
+export const buildCourseGroups = buildClassGroups;
+
+export function formatClassMeta(classGroup: Pick<ClassGroup, 'days' | 'startDate' | 'endDate'>) {
+	return `${formatCourseDays(classGroup.days)} · ${formatCourseDate(classGroup.startDate)} – ${formatCourseDate(classGroup.endDate)}`;
 }
+
+/** @deprecated Use formatClassMeta */
+export const formatGroupCourseMeta = formatClassMeta;
 
 export function getPaymentStatusLabel(status: PaymentStatus) {
 	return PAYMENT_STATUS_LABELS[status];
 }
 
 export function attachDropInPaymentsToGroups(
-	groups: CourseGroup[],
+	groups: ClassGroup[],
 	paymentRows: {
-		courseId: number | null;
+		groupId: number | null;
 		paymentId: number;
 		studentName: string | null;
 		planName: string;
@@ -320,15 +349,15 @@ export function attachDropInPaymentsToGroups(
 		paymentMethod: string;
 		paidAt: Date;
 	}[]
-): CourseGroup[] {
-	const paymentsByCourse = new Map<number, CourseDropInPayment[]>();
+): ClassGroup[] {
+	const paymentsByGroup = new Map<number, ClassDropInPayment[]>();
 
 	for (const row of paymentRows) {
-		if (!row.courseId) {
+		if (!row.groupId) {
 			continue;
 		}
 
-		const payment: CourseDropInPayment = {
+		const payment: ClassDropInPayment = {
 			paymentId: row.paymentId,
 			studentName: row.studentName ?? DROP_IN_GUEST_LABEL,
 			planName: row.planName,
@@ -344,14 +373,14 @@ export function attachDropInPaymentsToGroups(
 			}).format(row.paidAt)
 		};
 
-		const existing = paymentsByCourse.get(row.courseId) ?? [];
+		const existing = paymentsByGroup.get(row.groupId) ?? [];
 		existing.push(payment);
-		paymentsByCourse.set(row.courseId, existing);
+		paymentsByGroup.set(row.groupId, existing);
 	}
 
 	return groups.map((group) => ({
 		...group,
-		dropInPayments: paymentsByCourse.get(group.id) ?? []
+		dropInPayments: paymentsByGroup.get(group.id) ?? []
 	}));
 }
 

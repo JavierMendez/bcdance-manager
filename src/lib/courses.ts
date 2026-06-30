@@ -12,43 +12,25 @@ export const WEEKDAYS = [
 
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export type SerializedCourse = {
-	id: number;
-	name: string;
-	description: string;
+export type ClassScheduleFormValues = {
 	schedule: string;
 	days: Weekday[];
 	startDate: string;
 	endDate: string;
 };
 
-export type CourseFormValues = {
+/** @deprecated Use ClassScheduleFormValues for new code */
+export type CourseFormValues = ClassScheduleFormValues & {
 	name: string;
 	description: string;
-	schedule: string;
-	days: Weekday[];
-	startDate: string;
-	endDate: string;
 };
 
-export function validateCourseInput(data: CourseFormValues) {
+export function validateClassScheduleInput(data: ClassScheduleFormValues) {
 	const errors: Record<string, string> = {};
-	const name = data.name.trim();
-	const description = data.description.trim();
 	const schedule = data.schedule.trim();
-	const days = data.days.filter((day): day is Weekday =>
-		WEEKDAYS.includes(day as Weekday)
-	);
+	const days = data.days.filter((day): day is Weekday => WEEKDAYS.includes(day as Weekday));
 	const startDate = data.startDate.trim();
 	const endDate = data.endDate.trim();
-
-	if (!name) {
-		errors.name = 'El nombre es obligatorio.';
-	}
-
-	if (!description) {
-		errors.description = 'La descripción es obligatoria.';
-	}
 
 	if (!schedule) {
 		errors.schedule = 'El horario es obligatorio.';
@@ -72,7 +54,29 @@ export function validateCourseInput(data: CourseFormValues) {
 
 	return {
 		errors,
-		values: { name, description, schedule, days, startDate, endDate }
+		values: { schedule, days, startDate, endDate }
+	};
+}
+
+/** @deprecated Use validateProgramInput + validateClassScheduleInput */
+export function validateCourseInput(data: CourseFormValues) {
+	const programErrors: Record<string, string> = {};
+	const name = data.name.trim();
+	const description = data.description.trim();
+
+	if (!name) {
+		programErrors.name = 'El nombre es obligatorio.';
+	}
+
+	if (!description) {
+		programErrors.description = 'La descripción es obligatoria.';
+	}
+
+	const { errors: scheduleErrors, values: scheduleValues } = validateClassScheduleInput(data);
+
+	return {
+		errors: { ...programErrors, ...scheduleErrors },
+		values: { name, description, ...scheduleValues }
 	};
 }
 
@@ -88,3 +92,5 @@ export function formatCourseDate(dateValue: string) {
 export function formatCourseDays(days: string[]) {
 	return days.join(', ');
 }
+
+export type { SerializedClassGroup, SerializedClassGroup as SerializedCourse } from '$lib/groups.js';

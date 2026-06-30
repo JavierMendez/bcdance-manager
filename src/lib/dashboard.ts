@@ -37,19 +37,11 @@ export type RecentPaymentItem = {
 	purchaseType: PurchaseType;
 };
 
-export type DashboardData = {
-	activeStudents: number;
-	totalStudents: number;
-	monthlyRevenue: number;
-	monthlyPaymentsCount: number;
-	expiringSoonCount: number;
-	expiredCount: number;
-	vigenteCount: number;
-	monthlyRevenueChart: MonthlyRevenuePoint[];
-	monthlyRevenueChartDisplay: MonthlyRevenuePoint[];
-	paymentStatusChart: PaymentStatusPoint[];
-	studentsNeedingAttention: StudentAttentionItem[];
-	recentPayments: RecentPaymentItem[];
+export type TodayClassItem = {
+	id: number;
+	name: string;
+	schedule: string;
+	enrolledCount: number;
 };
 
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {

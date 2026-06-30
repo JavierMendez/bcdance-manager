@@ -1,5 +1,5 @@
 import { date, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
-import { courses } from './courses.js';
+import { groups } from './groups.js';
 import { studentEntitlements } from './student-entitlements.js';
 import { students } from './students.js';
 
@@ -10,8 +10,8 @@ export const classAttendance = pgTable(
 		studentId: integer('student_id')
 			.references(() => students.id)
 			.notNull(),
-		courseId: integer('course_id')
-			.references(() => courses.id)
+		groupId: integer('group_id')
+			.references(() => groups.id)
 			.notNull(),
 		entitlementId: integer('entitlement_id')
 			.references(() => studentEntitlements.id)
@@ -25,9 +25,9 @@ export const classAttendance = pgTable(
 		updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 	},
 	(table) => [
-		unique('class_attendance_student_course_date_entitlement').on(
+		unique('class_attendance_student_group_date_entitlement').on(
 			table.studentId,
-			table.courseId,
+			table.groupId,
 			table.sessionDate,
 			table.entitlementId
 		)

@@ -1,5 +1,6 @@
 export * from './students.js';
-export * from './courses.js';
+export * from './programs.js';
+export * from './groups.js';
 export * from './payment-plans.js';
 export * from './payments.js';
 export * from './payment-items.js';

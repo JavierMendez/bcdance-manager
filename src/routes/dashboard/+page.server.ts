@@ -1,115 +1,82 @@
-import { desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
+import { type TodayClassItem } from '$lib/dashboard.js';
+import { buildClassGroups, isClassActive } from '$lib/groups.js';
+import { WEEKDAYS, type Weekday } from '$lib/courses.js';
 import {
-	buildMonthlyRevenueChart,
-	buildMonthlyRevenueChartDisplay,
-	buildPaymentStatusChart,
-	getPaymentMonthKey,
-	type DashboardData,
-	type RecentPaymentItem,
-	type StudentAttentionItem
-} from '$lib/dashboard.js';
-import { payments, studentEntitlements, students } from '$lib/server/db/schema/index.js';
-import {
-	formatStudentName,
-	resolvePaymentStatus,
-	type PurchaseType
-} from '$lib/payments.js';
+	groups,
+	programs,
+	studentEntitlements,
+	students,
+	paymentPlans
+} from '$lib/server/db/schema/index.js';
 import type { PageServerLoad } from './$types.js';
 
 export const load: PageServerLoad = async () => {
 	const db = getDb();
 	const now = new Date();
 
-	const [studentRows, entitlementRows, paymentRows] = await Promise.all([
-		db.select().from(students).orderBy(desc(students.enrolledAt)),
-		db.select().from(studentEntitlements).where(eq(studentEntitlements.active, true)),
+	const [entitlementRows, groupRows] = await Promise.all([
 		db
 			.select({
-				payment: payments,
-				studentName: students.fullName
+				entitlementType: studentEntitlements.entitlementType,
+				groupId: studentEntitlements.groupId,
+				endsAt: studentEntitlements.endsAt,
+				hoursRemaining: studentEntitlements.hoursRemaining,
+				classesRemaining: studentEntitlements.classesRemaining,
+				planName: paymentPlans.name,
+				student: {
+					id: students.id,
+					fullName: students.fullName,
+					phone: students.phone,
+					active: students.active
+				}
 			})
-			.from(payments)
-			.leftJoin(students, eq(payments.studentId, students.id))
-			.orderBy(desc(payments.paidAt))
+			.from(studentEntitlements)
+			.innerJoin(students, eq(studentEntitlements.studentId, students.id))
+			.innerJoin(paymentPlans, eq(studentEntitlements.paymentPlanId, paymentPlans.id))
+			.where(eq(studentEntitlements.active, true)),
+		db
+			.select({
+				id: groups.id,
+				programId: groups.programId,
+				schedule: groups.schedule,
+				days: groups.days,
+				startDate: groups.startDate,
+				endDate: groups.endDate,
+				programName: programs.name,
+				programDescription: programs.description
+			})
+			.from(groups)
+			.innerJoin(programs, eq(groups.programId, programs.id))
 	]);
 
-	const entitlementsByStudent = new Map<number, typeof entitlementRows>();
-	for (const entitlement of entitlementRows) {
-		const current = entitlementsByStudent.get(entitlement.studentId) ?? [];
-		current.push(entitlement);
-		entitlementsByStudent.set(entitlement.studentId, current);
-	}
-
-	const paymentStatusCounts = {
-		vigente: 0,
-		por_vencer: 0,
-		vencido: 0
-	};
-
-	const studentsNeedingAttention: StudentAttentionItem[] = [];
-
-	for (const student of studentRows) {
-		if (!student.active) {
-			continue;
-		}
-
-		const paymentStatus = resolvePaymentStatus(entitlementsByStudent.get(student.id) ?? [], now);
-		paymentStatusCounts[paymentStatus] += 1;
-
-		if (paymentStatus === 'por_vencer' || paymentStatus === 'vencido') {
-			studentsNeedingAttention.push({
-				id: student.id,
-				fullName: student.fullName,
-				phone: student.phone,
-				paymentStatus
-			});
-		}
-	}
-
-	studentsNeedingAttention.sort((a, b) => {
-		if (a.paymentStatus === b.paymentStatus) {
-			return a.fullName.localeCompare(b.fullName, 'es');
-		}
-
-		return a.paymentStatus === 'vencido' ? -1 : 1;
-	});
-
-	const activeStudents = studentRows.filter((student) => student.active).length;
-	const currentMonthKey = getPaymentMonthKey(now);
-	const currentMonthPayments = paymentRows.filter(
-		({ payment }) => getPaymentMonthKey(payment.paidAt) === currentMonthKey
-	);
-
-	const monthlyRevenueChart = buildMonthlyRevenueChart(
-		paymentRows.map(({ payment }) => ({
-			paidAt: payment.paidAt,
-			totalAmount: payment.totalAmount
-		}))
-	);
-
-	const recentPayments: RecentPaymentItem[] = paymentRows.slice(0, 5).map(({ payment, studentName }) => ({
-		id: payment.id,
-		studentName: formatStudentName(studentName),
-		totalAmount: payment.totalAmount,
-		paidAt: payment.paidAt.toISOString(),
-		purchaseType: payment.purchaseType as PurchaseType
+	const todayWeekday = WEEKDAYS[(now.getDay() + 6) % 7] as Weekday;
+	const serializedClasses = groupRows.map((row) => ({
+		id: row.id,
+		programId: row.programId,
+		name: row.programName,
+		description: row.programDescription,
+		schedule: row.schedule,
+		days: row.days as Weekday[],
+		startDate: row.startDate,
+		endDate: row.endDate
 	}));
+	const classGroups = buildClassGroups(serializedClasses, entitlementRows, now);
+	const todayClasses: TodayClassItem[] = classGroups
+		.filter(
+			(classGroup) =>
+				classGroup.active &&
+				classGroup.days.includes(todayWeekday) &&
+				isClassActive(classGroup, now)
+		)
+		.map((classGroup) => ({
+			id: classGroup.id,
+			name: classGroup.name,
+			schedule: classGroup.schedule,
+			enrolledCount: classGroup.enrolledCount
+		}))
+		.sort((a, b) => a.schedule.localeCompare(b.schedule, 'es'));
 
-	const dashboard: DashboardData = {
-		activeStudents,
-		totalStudents: studentRows.length,
-		monthlyRevenue: currentMonthPayments.reduce((sum, { payment }) => sum + payment.totalAmount, 0),
-		monthlyPaymentsCount: currentMonthPayments.length,
-		expiringSoonCount: paymentStatusCounts.por_vencer,
-		expiredCount: paymentStatusCounts.vencido,
-		vigenteCount: paymentStatusCounts.vigente,
-		monthlyRevenueChart,
-		monthlyRevenueChartDisplay: buildMonthlyRevenueChartDisplay(monthlyRevenueChart),
-		paymentStatusChart: buildPaymentStatusChart(paymentStatusCounts),
-		studentsNeedingAttention: studentsNeedingAttention.slice(0, 6),
-		recentPayments
-	};
-
-	return { dashboard };
+	return { todayClasses };
 };

@@ -161,7 +161,7 @@
 				Periodo
 			</Card.Title>
 			<Card.Description>
-				{data.period.label} · independiente de las fechas de los grupos o cursos
+				{data.period.label} · independiente de las fechas de las clases
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>

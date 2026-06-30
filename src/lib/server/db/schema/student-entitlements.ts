@@ -1,5 +1,5 @@
 import { boolean, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
-import { courses } from './courses.js';
+import { groups } from './groups.js';
 import { paymentPlans } from './payment-plans.js';
 import { payments } from './payments.js';
 import { students } from './students.js';
@@ -16,7 +16,7 @@ export const studentEntitlements = pgTable('student_entitlements', {
 	paymentPlanId: integer('payment_plan_id')
 		.references(() => paymentPlans.id)
 		.notNull(),
-	courseId: integer('course_id').references(() => courses.id),
+	groupId: integer('group_id').references(() => groups.id),
 	hoursRemaining: integer('hours_remaining'),
 	classesRemaining: integer('classes_remaining'),
 	startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),

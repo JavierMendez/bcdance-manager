@@ -1,9 +1,11 @@
-import { date, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { date, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { programs } from './programs.js';
 
-export const courses = pgTable('courses', {
+export const groups = pgTable('groups', {
 	id: serial('id').primaryKey(),
-	name: text('name').notNull(),
-	description: text('description').notNull(),
+	programId: integer('program_id')
+		.references(() => programs.id)
+		.notNull(),
 	schedule: text('schedule').notNull(),
 	days: text('days').array().notNull(),
 	startDate: date('start_date').notNull(),
@@ -12,5 +14,5 @@ export const courses = pgTable('courses', {
 	updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 });
 
-export type Course = typeof courses.$inferSelect;
-export type NewCourse = typeof courses.$inferInsert;
+export type Group = typeof groups.$inferSelect;
+export type NewGroup = typeof groups.$inferInsert;

@@ -1,5 +1,5 @@
 import { integer, pgTable, serial, text } from 'drizzle-orm/pg-core';
-import { courses } from './courses.js';
+import { groups } from './groups.js';
 import { paymentPlans } from './payment-plans.js';
 import { payments } from './payments.js';
 
@@ -12,7 +12,7 @@ export const paymentItems = pgTable('payment_items', {
 	paymentPlanId: integer('payment_plan_id')
 		.references(() => paymentPlans.id)
 		.notNull(),
-	courseId: integer('course_id').references(() => courses.id),
+	groupId: integer('group_id').references(() => groups.id),
 	amount: integer('amount').notNull(),
 	hoursGranted: integer('hours_granted'),
 	classesGranted: integer('classes_granted')

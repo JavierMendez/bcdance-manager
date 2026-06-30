@@ -28,7 +28,8 @@
 
 	let {
 		open = $bindable(false),
-		courseId,
+		groupId,
+		courseId = groupId,
 		sessionDate,
 		students,
 		dropInPlans,
@@ -39,7 +40,8 @@
 		onClosed
 	}: {
 		open?: boolean;
-		courseId: number;
+		groupId: number;
+		courseId?: number;
 		sessionDate: string;
 		students: WizardStudent[];
 		dropInPlans: WizardPaymentPlan[];
@@ -120,7 +122,7 @@
 				};
 			}}
 		>
-			<input type="hidden" name="courseId" value={courseId} />
+			<input type="hidden" name="groupId" value={groupId ?? courseId} />
 			<input type="hidden" name="sessionDate" value={sessionDate} />
 
 			<FieldGroup>

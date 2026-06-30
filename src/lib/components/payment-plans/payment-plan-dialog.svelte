@@ -240,7 +240,7 @@
 								required
 								aria-invalid={errors.hoursIncluded ? true : undefined}
 							/>
-							<FieldDescription>Horas disponibles para cualquier curso.</FieldDescription>
+							<FieldDescription>Horas disponibles para cualquier clase.</FieldDescription>
 							{#if errors.hoursIncluded}
 								<FieldError>{errors.hoursIncluded}</FieldError>
 							{/if}

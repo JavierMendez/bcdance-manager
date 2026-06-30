@@ -27,7 +27,7 @@
 	export const navItems = [
 		{ title: 'Inicio', url: '/dashboard', icon: HomeIcon },
 		{ title: 'Alumnos', url: '/dashboard/alumnos', icon: UsersIcon },
-		{ title: 'Grupos', url: '/dashboard/grupos', icon: LayersIcon },
+		{ title: 'Clases', url: '/dashboard/clases', icon: LayersIcon },
 		{ title: 'Pagos', url: '/dashboard/pagos', icon: WalletIcon },
 		{ title: 'Flujo de efectivo', url: '/dashboard/flujo-de-efectivo', icon: ArrowLeftRightIcon },
 		{
@@ -35,7 +35,7 @@
 			url: '/dashboard/configuraciones',
 			icon: SettingsIcon,
 			items: [
-				{ title: 'Cursos', url: '/dashboard/configuraciones/cursos', icon: BookOpenIcon },
+				{ title: 'Programas', url: '/dashboard/configuraciones/programas', icon: BookOpenIcon },
 				{
 					title: 'Planes de pago',
 					url: '/dashboard/configuraciones/planes-de-pago',
@@ -46,8 +46,12 @@
 	] satisfies readonly NavItem[];
 
 	export function getBreadcrumb(pathname: string) {
-		if (pathname === '/dashboard/grupos/asistencia') {
-			return { section: 'Grupos', page: 'Registrar asistencia' };
+		if (pathname === '/dashboard/clases/asistencia' || pathname === '/dashboard/grupos/asistencia') {
+			return { section: 'Clases', page: 'Registrar asistencia' };
+		}
+
+		if (pathname.startsWith('/dashboard/clases/') && pathname !== '/dashboard/clases/asistencia') {
+			return { section: 'Clases', page: 'Detalle de clase' };
 		}
 
 		if (pathname === '/dashboard/pagos/registrar') {

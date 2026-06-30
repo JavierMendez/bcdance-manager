@@ -152,7 +152,7 @@ export type SerializedPayment = {
 };
 
 export const PURCHASE_TYPE_LABELS: Record<PurchaseType, string> = {
-	monthly_only: 'Plan mensual para un curso',
+	monthly_only: 'Plan mensual para una clase',
 	full_pass_only: 'Full pass (12 horas)',
 	combined: 'Plan mensual + Full pass',
 	drop_in_only: 'Clase suelta (por clase)'
@@ -161,11 +161,11 @@ export const PURCHASE_TYPE_LABELS: Record<PurchaseType, string> = {
 export function getPurchaseTypeDescription(type: PurchaseType) {
 	switch (type) {
 		case 'monthly_only':
-			return 'Acceso mensual a un curso específico del catálogo.';
+			return 'Acceso mensual a una clase específica.';
 		case 'full_pass_only':
-			return '12 horas disponibles para usar en cualquier curso.';
+			return '12 horas disponibles para usar en cualquier clase.';
 		case 'combined':
-			return 'Combina un plan mensual para un curso y 12 horas de full pass.';
+			return 'Combina un plan mensual para una clase y 12 horas de full pass.';
 		case 'drop_in_only':
 			return 'Pago por clase sin inscripción mensual. El alumno asiste con créditos de clase.';
 	}
@@ -204,9 +204,9 @@ export function validatePaymentWizard(
 
 	if (needsMonthly) {
 		if (!courseId) {
-			errors.courseId = 'Selecciona un curso.';
+			errors.courseId = 'Selecciona una clase.';
 		} else if (!courses.some((course) => course.id === courseId)) {
-			errors.courseId = 'El curso seleccionado no es válido.';
+			errors.courseId = 'La clase seleccionada no es válida.';
 		}
 
 		if (!monthlyPlanId) {
@@ -232,9 +232,9 @@ export function validatePaymentWizard(
 
 	if (needsDropIn) {
 		if (!courseId) {
-			errors.courseId = 'Selecciona un curso.';
+			errors.courseId = 'Selecciona una clase.';
 		} else if (!courses.some((course) => course.id === courseId)) {
-			errors.courseId = 'El curso seleccionado no es válido.';
+			errors.courseId = 'La clase seleccionada no es válida.';
 		}
 
 		if (!dropInPlanId) {

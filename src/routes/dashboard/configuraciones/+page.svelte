@@ -16,14 +16,14 @@
 			<Card.Header>
 				<Card.Title class="flex items-center gap-2">
 					<BookOpenIcon />
-					Cursos
+					Programas
 				</Card.Title>
 				<Card.Description>
-					Crea y administra los cursos con su horario, días y vigencia.
+					Consulta las plantillas de referencia usadas al crear clases.
 				</Card.Description>
 			</Card.Header>
 			<Card.Footer>
-				<Button href="/dashboard/configuraciones/cursos">Gestionar cursos</Button>
+				<Button href="/dashboard/configuraciones/programas">Ver programas</Button>
 			</Card.Footer>
 		</Card.Root>
 

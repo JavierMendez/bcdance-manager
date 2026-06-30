@@ -26,7 +26,7 @@
 					{#if showSection}
 						<Breadcrumb.Separator class="hidden md:block" />
 					<Breadcrumb.Item class="hidden md:block">
-						<Breadcrumb.Link href={breadcrumb.section === 'Pagos' ? '/dashboard/pagos' : breadcrumb.section === 'Grupos' ? '/dashboard/grupos' : '/dashboard/configuraciones'}>
+						<Breadcrumb.Link href={breadcrumb.section === 'Pagos' ? '/dashboard/pagos' : breadcrumb.section === 'Clases' ? '/dashboard/clases' : '/dashboard/configuraciones'}>
 							{breadcrumb.section}
 						</Breadcrumb.Link>
 					</Breadcrumb.Item>

@@ -71,6 +71,13 @@
       "when": 1782765043289,
       "tag": "0010_remove_student_email",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782766043289,
+      "tag": "0011_split_programs_groups",
+      "breakpoints": true
     }
   ]
 }
