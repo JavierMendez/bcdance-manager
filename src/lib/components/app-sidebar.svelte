@@ -7,9 +7,12 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
+	import UserCogIcon from '@lucide/svelte/icons/user-cog';
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import Music2Icon from '@lucide/svelte/icons/music-2';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import type { AppRole } from '$lib/auth/roles.js';
+	import { USER_NAV_URLS } from '$lib/auth/roles.js';
 
 	export type NavSubItem = {
 		title: string;
@@ -24,7 +27,7 @@
 		items?: readonly NavSubItem[];
 	};
 
-	export const navItems = [
+	const baseNavItems = [
 		{ title: 'Inicio', url: '/dashboard', icon: HomeIcon },
 		{ title: 'Alumnos', url: '/dashboard/alumnos', icon: UsersIcon },
 		{ title: 'Clases', url: '/dashboard/clases', icon: LayersIcon },
@@ -40,10 +43,25 @@
 					title: 'Planes de pago',
 					url: '/dashboard/configuraciones/planes-de-pago',
 					icon: CreditCardIcon
+				},
+				{
+					title: 'Usuarios',
+					url: '/dashboard/configuraciones/usuarios',
+					icon: UserCogIcon
 				}
 			]
 		}
 	] satisfies readonly NavItem[];
+
+	export const navItems = baseNavItems;
+
+	export function getNavItemsForRole(role: AppRole): readonly NavItem[] {
+		if (role === 'admin') {
+			return baseNavItems;
+		}
+
+		return baseNavItems.filter((item) => USER_NAV_URLS.has(item.url));
+	}
 
 	export function getBreadcrumb(pathname: string) {
 		if (pathname === '/dashboard/clases/asistencia' || pathname === '/dashboard/grupos/asistencia') {
@@ -60,6 +78,10 @@
 
 		if (pathname === '/dashboard/flujo-de-efectivo') {
 			return { section: 'Flujo de efectivo', page: 'Flujo de efectivo' };
+		}
+
+		if (pathname === '/dashboard/configuraciones/usuarios') {
+			return { section: 'Configuraciones', page: 'Usuarios' };
 		}
 
 		for (const item of navItems) {
@@ -86,24 +108,40 @@
 </script>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { authClient } from '$lib/auth-client.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import { page } from '$app/state';
 	import type { ComponentProps } from 'svelte';
 
-	let { ref = $bindable(null), ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
+	let {
+		ref = $bindable(null),
+		role,
+		...restProps
+	}: ComponentProps<typeof Sidebar.Root> & { role: AppRole } = $props();
+
+	const visibleNavItems = $derived(getNavItemsForRole(role));
 
 	let openSections = $state<Record<string, boolean>>({});
+	let signingOut = $state(false);
 
 	function isSectionOpen(item: NavItem) {
 		return openSections[item.url] ?? false;
 	}
 
+	async function handleSignOut() {
+		signingOut = true;
+		await authClient.signOut();
+		signingOut = false;
+		await goto('/login');
+	}
+
 	$effect(() => {
 		const pathname = page.url.pathname;
 
-		for (const item of navItems) {
+		for (const item of visibleNavItems) {
 			if (item.items?.length && isNavItemActive(item, pathname) && !isSectionOpen(item)) {
 				openSections = { ...openSections, [item.url]: true };
 			}
@@ -137,7 +175,7 @@
 		<Sidebar.Group>
 			<Sidebar.GroupLabel>Menú</Sidebar.GroupLabel>
 			<Sidebar.Menu class="gap-2">
-				{#each navItems as item (item.url)}
+				{#each visibleNavItems as item (item.url)}
 					{#if item.items?.length}
 						<Collapsible.Root
 							bind:open={() => isSectionOpen(item), (open) => {
@@ -201,10 +239,10 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
-						<a href="/login" {...props}>
+						<button type="button" onclick={handleSignOut} disabled={signingOut} {...props}>
 							<LogOutIcon />
-							<span>Cerrar sesión</span>
-						</a>
+							<span>{signingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}</span>
+						</button>
 					{/snippet}
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>

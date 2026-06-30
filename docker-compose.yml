@@ -25,6 +25,11 @@ services:
       - '${APP_PORT:-5173}:5173'
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-bcdance}:${POSTGRES_PASSWORD:-bcdance}@db:5432/${POSTGRES_DB:-bcdance_manager}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-to-a-random-32-char-secret-key}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:5173}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bcdance.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules

@@ -78,6 +78,13 @@
       "when": 1782766043289,
       "tag": "0011_split_programs_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782767043289,
+      "tag": "0012_add_auth",
+      "breakpoints": true
     }
   ]
 }

@@ -6,14 +6,14 @@
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import { page } from '$app/state';
 
-	let { children } = $props();
+	let { data, children } = $props();
 
 	const breadcrumb = $derived(getBreadcrumb(page.url.pathname));
 	const showSection = $derived(breadcrumb.section !== breadcrumb.page);
 </script>
 
 <Sidebar.Provider style="--sidebar-width: 19rem;">
-	<AppSidebar />
+	<AppSidebar role={data.role} />
 	<Sidebar.Inset>
 		<header class="flex h-16 shrink-0 items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />

@@ -21,7 +21,8 @@
 		"docker:db": "docker compose up -d db",
 		"docker:prod:up": "docker compose -f docker-compose.prod.yml up -d --build",
 		"docker:prod:down": "docker compose -f docker-compose.prod.yml down",
-		"docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f"
+		"docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+		"seed:admin": "node scripts/seed-admin.mjs"
 	},
 	"devDependencies": {
 		"@fontsource-variable/inter": "^5.2.8",
@@ -48,11 +49,15 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@better-auth/drizzle-adapter": "^1.6.23",
+		"better-auth": "^1.6.23",
 		"drizzle-orm": "^0.45.2",
 		"mode-watcher": "^1.1.0",
 		"postgres": "^3.4.9"
 	},
 	"pnpm": {
-		"onlyBuiltDependencies": ["esbuild"]
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
 	}
 }

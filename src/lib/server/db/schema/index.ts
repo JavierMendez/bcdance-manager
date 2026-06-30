@@ -7,3 +7,4 @@ export * from './payment-items.js';
 export * from './student-entitlements.js';
 export * from './class-attendance.js';
 export * from './expenses.js';
+export * from './auth.js';
