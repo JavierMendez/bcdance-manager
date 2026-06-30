@@ -18,7 +18,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
-ENV PORT=3000
+ENV PORT=5174
 
 COPY package.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
@@ -31,6 +31,6 @@ COPY scripts/auth-schema.mjs scripts/auth-schema.mjs
 COPY scripts/docker-entrypoint.sh docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
-EXPOSE 3000
+EXPOSE 5174
 
 ENTRYPOINT ["sh", "./docker-entrypoint.sh"]

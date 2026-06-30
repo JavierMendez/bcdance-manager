@@ -22,7 +22,7 @@
 		"docker:prod:up": "docker compose -f docker-compose.prod.yml up -d --build",
 		"docker:prod:down": "docker compose -f docker-compose.prod.yml down",
 		"docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
-		"seed:admin": "node scripts/seed-admin.mjs"
+		"seed:admin": "node --import dotenv/config scripts/seed-admin.mjs"
 	},
 	"devDependencies": {
 		"@fontsource-variable/inter": "^5.2.8",

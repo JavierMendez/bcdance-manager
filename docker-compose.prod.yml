@@ -22,14 +22,14 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - '${APP_PORT:-3000}:3000'
+      - '${APP_PORT:-5174}:5174'
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
-      PORT: 3000
+      PORT: 5174
       DATABASE_URL: postgresql://${POSTGRES_USER:-bcdance}:${POSTGRES_PASSWORD:-bcdance}@db:5432/${POSTGRES_DB:-bcdance_manager}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bcdance.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME:-Administrador}
