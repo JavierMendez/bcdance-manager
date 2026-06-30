@@ -3,6 +3,7 @@ import { APP_LOCALE } from '$lib/locale.js';
 import {
 	PAYMENT_EXPIRING_SOON_DAYS,
 	PAYMENT_STATUS_LABELS,
+	DROP_IN_GUEST_LABEL,
 	type PaymentStatus
 } from '$lib/payments.js';
 
@@ -18,10 +19,21 @@ export type GroupMember = {
 	paymentStatus: PaymentStatus;
 };
 
+export type CourseDropInPayment = {
+	paymentId: number;
+	studentName: string;
+	planName: string;
+	totalAmount: number;
+	paymentMethod: string;
+	paidAtLabel: string;
+};
+
 export type CourseGroup = SerializedCourse & {
 	active: boolean;
 	enrolledCount: number;
+	dropInCount: number;
 	members: GroupMember[];
+	dropInPayments: CourseDropInPayment[];
 };
 
 export type GroupsPageData = {
@@ -279,11 +291,15 @@ export function buildCourseGroups(
 			a.fullName.localeCompare(b.fullName, 'es')
 		);
 
+		const dropInCount = members.filter((member) => member.modalityLabel.includes('Por clase')).length;
+
 		return {
 			...course,
 			active: isCourseActive(course, now),
 			enrolledCount: members.length,
-			members
+			dropInCount,
+			members,
+			dropInPayments: []
 		};
 	});
 }
@@ -294,6 +310,52 @@ export function formatGroupCourseMeta(course: Pick<CourseGroup, 'days' | 'startD
 
 export function getPaymentStatusLabel(status: PaymentStatus) {
 	return PAYMENT_STATUS_LABELS[status];
+}
+
+export function attachDropInPaymentsToGroups(
+	groups: CourseGroup[],
+	paymentRows: {
+		courseId: number | null;
+		paymentId: number;
+		studentName: string | null;
+		planName: string;
+		totalAmount: number;
+		paymentMethod: string;
+		paidAt: Date;
+	}[]
+): CourseGroup[] {
+	const paymentsByCourse = new Map<number, CourseDropInPayment[]>();
+
+	for (const row of paymentRows) {
+		if (!row.courseId) {
+			continue;
+		}
+
+		const payment: CourseDropInPayment = {
+			paymentId: row.paymentId,
+			studentName: row.studentName ?? DROP_IN_GUEST_LABEL,
+			planName: row.planName,
+			totalAmount: row.totalAmount,
+			paymentMethod: row.paymentMethod,
+			paidAtLabel: new Intl.DateTimeFormat(APP_LOCALE, {
+				day: '2-digit',
+				month: 'short',
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit',
+				timeZone: 'America/Mexico_City'
+			}).format(row.paidAt)
+		};
+
+		const existing = paymentsByCourse.get(row.courseId) ?? [];
+		existing.push(payment);
+		paymentsByCourse.set(row.courseId, existing);
+	}
+
+	return groups.map((group) => ({
+		...group,
+		dropInPayments: paymentsByCourse.get(group.id) ?? []
+	}));
 }
 
 export type { Weekday };

@@ -10,6 +10,7 @@
 	import {
 		getPaymentStatusBadgeVariant
 	} from '$lib/payments.js';
+	import { formatPrice } from '$lib/payment-plans.js';
 	import BookOpenIcon from '@lucide/svelte/icons/book-open';
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -28,7 +29,7 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-2xl font-bold tracking-tight">Grupos</h2>
 			<p class="text-muted-foreground text-sm">
-				Consulta los cursos activos, sus horarios y los alumnos inscritos por modalidad.
+				Consulta los cursos activos, sus horarios y los alumnos con plan mensual o créditos por clase.
 			</p>
 		</div>
 		<div class="flex flex-wrap gap-2">
@@ -89,7 +90,15 @@
 										<Badge variant="secondary">
 											<UsersIcon />
 											{group.enrolledCount} alumno{group.enrolledCount === 1 ? '' : 's'}
+											{#if group.dropInCount > 0}
+												· {group.dropInCount} por clase
+											{/if}
 										</Badge>
+										{#if group.dropInPayments.length > 0}
+											<Badge variant="outline">
+												{group.dropInPayments.length} pago{group.dropInPayments.length === 1 ? '' : 's'} por clase
+											</Badge>
+										{/if}
 									</div>
 									<Card.Description>{group.description}</Card.Description>
 								</div>
@@ -113,53 +122,90 @@
 								</div>
 							</div>
 
-							{#if group.members.length === 0}
+							{#if group.members.length === 0 && group.dropInPayments.length === 0}
 								<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-8 text-center text-sm">
-									No hay alumnos inscritos en este grupo.
+									No hay alumnos con inscripción mensual ni créditos por clase activos en este grupo.
 								</div>
 							{:else}
-								<div class="rounded-xl border">
-									<Table.Root>
-										<Table.Header>
-											<Table.Row>
-												<Table.Head>Alumno</Table.Head>
-												<Table.Head>Contacto</Table.Head>
-												<Table.Head>Modalidad</Table.Head>
-												<Table.Head>Plan</Table.Head>
-												<Table.Head>Cobertura</Table.Head>
-												<Table.Head>Estado pago</Table.Head>
-											</Table.Row>
-										</Table.Header>
-										<Table.Body>
-											{#each group.members as member (member.studentId)}
+								{#if group.members.length > 0}
+									<div class="rounded-xl border">
+										<Table.Root>
+											<Table.Header>
 												<Table.Row>
-													<Table.Cell>
-														<div class="flex flex-col gap-0.5">
-															<span class="font-medium">{member.fullName}</span>
-															{#if !member.studentActive}
-																<span class="text-muted-foreground text-xs">Alumno inactivo</span>
-															{/if}
-														</div>
-													</Table.Cell>
-													<Table.Cell>
-														<div class="flex flex-col gap-0.5 text-sm">
-															<span>{member.phone}</span>
-															<span class="text-muted-foreground">{member.email}</span>
-														</div>
-													</Table.Cell>
-													<Table.Cell>{member.modalityLabel}</Table.Cell>
-													<Table.Cell>{member.planName}</Table.Cell>
-													<Table.Cell>{member.coverageLabel}</Table.Cell>
-													<Table.Cell>
-														<Badge variant={getPaymentStatusBadgeVariant(member.paymentStatus)}>
-															{getPaymentStatusLabel(member.paymentStatus)}
-														</Badge>
-													</Table.Cell>
+													<Table.Head>Alumno</Table.Head>
+													<Table.Head>Contacto</Table.Head>
+													<Table.Head>Modalidad</Table.Head>
+													<Table.Head>Plan</Table.Head>
+													<Table.Head>Cobertura</Table.Head>
+													<Table.Head>Estado pago</Table.Head>
 												</Table.Row>
-											{/each}
-										</Table.Body>
-									</Table.Root>
-								</div>
+											</Table.Header>
+											<Table.Body>
+												{#each group.members as member (member.studentId)}
+													<Table.Row>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5">
+																<span class="font-medium">{member.fullName}</span>
+																{#if !member.studentActive}
+																	<span class="text-muted-foreground text-xs">Alumno inactivo</span>
+																{/if}
+															</div>
+														</Table.Cell>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5 text-sm">
+																<span>{member.phone}</span>
+																<span class="text-muted-foreground">{member.email}</span>
+															</div>
+														</Table.Cell>
+														<Table.Cell>{member.modalityLabel}</Table.Cell>
+														<Table.Cell>{member.planName}</Table.Cell>
+														<Table.Cell>{member.coverageLabel}</Table.Cell>
+														<Table.Cell>
+															<Badge variant={getPaymentStatusBadgeVariant(member.paymentStatus)}>
+																{getPaymentStatusLabel(member.paymentStatus)}
+															</Badge>
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								{/if}
+
+								{#if group.dropInPayments.length > 0}
+									<div class="flex flex-col gap-3">
+										<div>
+											<h4 class="text-sm font-semibold">Pagos por clase registrados</h4>
+											<p class="text-muted-foreground text-sm">
+												Incluye pagos sin alumno asignado y clases sueltas cobradas en este curso.
+											</p>
+										</div>
+										<div class="rounded-xl border">
+											<Table.Root>
+												<Table.Header>
+													<Table.Row>
+														<Table.Head>Alumno</Table.Head>
+														<Table.Head>Plan</Table.Head>
+														<Table.Head>Monto</Table.Head>
+														<Table.Head>Método</Table.Head>
+														<Table.Head>Fecha</Table.Head>
+													</Table.Row>
+												</Table.Header>
+												<Table.Body>
+													{#each group.dropInPayments as payment (payment.paymentId)}
+														<Table.Row>
+															<Table.Cell class="font-medium">{payment.studentName}</Table.Cell>
+															<Table.Cell>{payment.planName}</Table.Cell>
+															<Table.Cell>{formatPrice(payment.totalAmount)}</Table.Cell>
+															<Table.Cell>{payment.paymentMethod}</Table.Cell>
+															<Table.Cell>{payment.paidAtLabel}</Table.Cell>
+														</Table.Row>
+													{/each}
+												</Table.Body>
+											</Table.Root>
+										</div>
+									</div>
+								{/if}
 							{/if}
 						</Card.Content>
 					</Card.Root>

@@ -16,6 +16,8 @@
 		type AttendanceStatus
 	} from '$lib/attendance.js';
 	import { formatCourseDays } from '$lib/courses.js';
+	import { formatPrice } from '$lib/payment-plans.js';
+	import { formatDiscountPercent } from '$lib/payments.js';
 	import { enhance } from '$app/forms';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
@@ -103,6 +105,13 @@
 	const allMarked = $derived(
 		data.members.length > 0 &&
 			data.members.every((member) => statuses[member.studentId] !== '')
+	);
+
+	const dropInMembers = $derived(
+		data.members.filter((member) => member.entitlementType === 'drop_in')
+	);
+	const enrolledMembers = $derived(
+		data.members.filter((member) => member.entitlementType !== 'drop_in')
 	);
 
 	function applyFilters() {
@@ -207,8 +216,8 @@
 					Pago por clase
 				</Button>
 			</Card.Header>
-			<Card.Content>
-				{#if data.members.length === 0}
+			<Card.Content class="flex flex-col gap-6">
+				{#if data.members.length === 0 && data.sessionDropInPayments.length === 0}
 					<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
 						No hay alumnos inscritos con vigencia activa en este curso.
 						{#if data.eligibleStudents.length > 0 && data.dropInPlans.length > 0}
@@ -217,68 +226,207 @@
 							</span>
 						{/if}
 					</div>
-				{:else}
+				{:else if data.members.length > 0}
 					<form
-						method="POST"
-						action="?/save"
-						use:enhance={() => {
-							submitting = true;
-							return async ({ update }) => {
-								await update();
-								submitting = false;
-							};
-						}}
-					>
-						<input type="hidden" name="courseId" value={data.course.id} />
-						<input type="hidden" name="sessionDate" value={data.sessionDate} />
-						<input type="hidden" name="entries" value={entriesPayload} />
+							method="POST"
+							action="?/save"
+							use:enhance={() => {
+								submitting = true;
+								return async ({ update }) => {
+									await update();
+									submitting = false;
+								};
+							}}
+						>
+							<input type="hidden" name="courseId" value={data.course.id} />
+							<input type="hidden" name="sessionDate" value={data.sessionDate} />
+							<input type="hidden" name="entries" value={entriesPayload} />
 
+							{#if enrolledMembers.length > 0}
+								<div class="flex flex-col gap-3">
+									<h3 class="text-sm font-semibold">Alumnos inscritos</h3>
+									<div class="rounded-xl border">
+										<Table.Root>
+											<Table.Header>
+												<Table.Row>
+													<Table.Head>Alumno</Table.Head>
+													<Table.Head>Modalidad</Table.Head>
+													<Table.Head>Cobertura</Table.Head>
+													<Table.Head>Registro</Table.Head>
+												</Table.Row>
+											</Table.Header>
+											<Table.Body>
+												{#each enrolledMembers as member (member.studentId)}
+													<Table.Row>
+														<Table.Cell class="font-medium">{member.fullName}</Table.Cell>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5">
+																<span>{member.modalityLabel}</span>
+																<span class="text-muted-foreground text-xs">{member.planName}</span>
+															</div>
+														</Table.Cell>
+														<Table.Cell>{member.coverageLabel}</Table.Cell>
+														<Table.Cell>
+															<ToggleGroup.Root
+																type="single"
+																variant="outline"
+																value={statuses[member.studentId] || undefined}
+																onValueChange={(value) => {
+																	statuses = {
+																		...statuses,
+																		[member.studentId]: (value as AttendanceStatus) ?? ''
+																	};
+																}}
+															>
+																<ToggleGroup.Item value="attended" aria-label="Asistió">
+																	{ATTENDANCE_STATUS_LABELS.attended}
+																</ToggleGroup.Item>
+																<ToggleGroup.Item value="absent" aria-label="Falta">
+																	{ATTENDANCE_STATUS_LABELS.absent}
+																</ToggleGroup.Item>
+															</ToggleGroup.Root>
+															{#if member.currentStatus}
+																<div class="mt-2">
+																	<Badge
+																		variant={getAttendanceStatusBadgeVariant(member.currentStatus)}
+																	>
+																		Guardado: {ATTENDANCE_STATUS_LABELS[member.currentStatus]}
+																	</Badge>
+																</div>
+															{/if}
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								</div>
+							{/if}
+
+							{#if dropInMembers.length > 0}
+								<div class="flex flex-col gap-3">
+									<h3 class="text-sm font-semibold">Pagos por clase</h3>
+									<div class="rounded-xl border">
+										<Table.Root>
+											<Table.Header>
+												<Table.Row>
+													<Table.Head>Alumno</Table.Head>
+													<Table.Head>Plan</Table.Head>
+													<Table.Head>Créditos</Table.Head>
+													<Table.Head>Registro</Table.Head>
+												</Table.Row>
+											</Table.Header>
+											<Table.Body>
+												{#each dropInMembers as member (member.studentId)}
+													<Table.Row>
+														<Table.Cell class="font-medium">{member.fullName}</Table.Cell>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5">
+																<span>{member.modalityLabel}</span>
+																<span class="text-muted-foreground text-xs">{member.planName}</span>
+															</div>
+														</Table.Cell>
+														<Table.Cell>{member.coverageLabel}</Table.Cell>
+														<Table.Cell>
+															<ToggleGroup.Root
+																type="single"
+																variant="outline"
+																value={statuses[member.studentId] || undefined}
+																onValueChange={(value) => {
+																	statuses = {
+																		...statuses,
+																		[member.studentId]: (value as AttendanceStatus) ?? ''
+																	};
+																}}
+															>
+																<ToggleGroup.Item value="attended" aria-label="Asistió">
+																	{ATTENDANCE_STATUS_LABELS.attended}
+																</ToggleGroup.Item>
+																<ToggleGroup.Item value="absent" aria-label="Falta">
+																	{ATTENDANCE_STATUS_LABELS.absent}
+																</ToggleGroup.Item>
+															</ToggleGroup.Root>
+															{#if member.currentStatus}
+																<div class="mt-2">
+																	<Badge
+																		variant={getAttendanceStatusBadgeVariant(member.currentStatus)}
+																	>
+																		Guardado: {ATTENDANCE_STATUS_LABELS[member.currentStatus]}
+																	</Badge>
+																</div>
+															{/if}
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								</div>
+							{/if}
+
+							<div class="mt-4 flex items-center justify-between gap-4">
+								<p class="text-muted-foreground text-sm">
+									{#if allMarked}
+										Todos los alumnos tienen un estado seleccionado.
+									{:else}
+										Marca asistencia o falta para cada alumno antes de guardar.
+									{/if}
+								</p>
+								<Button type="submit" disabled={submitting || !allMarked}>
+									{submitting ? 'Guardando...' : 'Guardar asistencia'}
+								</Button>
+							</div>
+						</form>
+				{/if}
+
+				<div class="flex flex-col gap-3">
+					<div>
+						<h3 class="text-sm font-semibold">Pagos por clase de esta sesión</h3>
+						<p class="text-muted-foreground text-sm">
+							Ingresos del {data.sessionDateLabel} para este curso, incluyendo pagos sin alumno.
+						</p>
+					</div>
+					{#if data.sessionDropInPayments.length === 0}
+						<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm">
+							No hay pagos por clase registrados en esta fecha.
+						</div>
+					{:else}
 						<div class="rounded-xl border">
 							<Table.Root>
 								<Table.Header>
 									<Table.Row>
 										<Table.Head>Alumno</Table.Head>
-										<Table.Head>Modalidad</Table.Head>
-										<Table.Head>Cobertura</Table.Head>
-										<Table.Head>Registro</Table.Head>
+										<Table.Head>Plan</Table.Head>
+										<Table.Head>Clases</Table.Head>
+										<Table.Head>Monto</Table.Head>
+										<Table.Head>Método</Table.Head>
+										<Table.Head>Asistencia</Table.Head>
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each data.members as member (member.studentId)}
+									{#each data.sessionDropInPayments as payment (payment.paymentId)}
 										<Table.Row>
-											<Table.Cell class="font-medium">{member.fullName}</Table.Cell>
+											<Table.Cell class="font-medium">{payment.studentName}</Table.Cell>
+											<Table.Cell>{payment.planName}</Table.Cell>
+											<Table.Cell>{payment.classesGranted}</Table.Cell>
 											<Table.Cell>
-												<div class="flex flex-col gap-0.5">
-													<span>{member.modalityLabel}</span>
-													<span class="text-muted-foreground text-xs">{member.planName}</span>
+												<div class="flex flex-col gap-0.5 text-sm">
+													<span>{formatPrice(payment.totalAmount)}</span>
+													{#if payment.discountPercent > 0}
+														<span class="text-muted-foreground text-xs">
+															Desc. {formatDiscountPercent(payment.discountPercent)}
+														</span>
+													{/if}
 												</div>
 											</Table.Cell>
-											<Table.Cell>{member.coverageLabel}</Table.Cell>
+											<Table.Cell>{payment.paymentMethod}</Table.Cell>
 											<Table.Cell>
-												<ToggleGroup.Root
-													type="single"
-													variant="outline"
-													value={statuses[member.studentId] || undefined}
-													onValueChange={(value) => {
-														statuses = {
-															...statuses,
-															[member.studentId]: (value as AttendanceStatus) ?? ''
-														};
-													}}
-												>
-													<ToggleGroup.Item value="attended" aria-label="Asistió">
-														{ATTENDANCE_STATUS_LABELS.attended}
-													</ToggleGroup.Item>
-													<ToggleGroup.Item value="absent" aria-label="Falta">
-														{ATTENDANCE_STATUS_LABELS.absent}
-													</ToggleGroup.Item>
-												</ToggleGroup.Root>
-												{#if member.currentStatus}
-													<div class="mt-2">
-														<Badge variant={getAttendanceStatusBadgeVariant(member.currentStatus)}>
-															Guardado: {ATTENDANCE_STATUS_LABELS[member.currentStatus]}
-														</Badge>
-													</div>
+												{#if payment.attendanceStatus}
+													<Badge variant={getAttendanceStatusBadgeVariant(payment.attendanceStatus)}>
+														{ATTENDANCE_STATUS_LABELS[payment.attendanceStatus]}
+													</Badge>
+												{:else}
+													<span class="text-muted-foreground text-sm">Solo pago</span>
 												{/if}
 											</Table.Cell>
 										</Table.Row>
@@ -286,21 +434,8 @@
 								</Table.Body>
 							</Table.Root>
 						</div>
-
-						<div class="mt-4 flex items-center justify-between gap-4">
-							<p class="text-muted-foreground text-sm">
-								{#if allMarked}
-									Todos los alumnos tienen un estado seleccionado.
-								{:else}
-									Marca asistencia o falta para cada alumno antes de guardar.
-								{/if}
-							</p>
-							<Button type="submit" disabled={submitting || !allMarked}>
-								{submitting ? 'Guardando...' : 'Guardar asistencia'}
-							</Button>
-						</div>
-					</form>
-				{/if}
+					{/if}
+				</div>
 			</Card.Content>
 		</Card.Root>
 

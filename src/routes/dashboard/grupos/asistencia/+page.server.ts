@@ -1,7 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
 	buildAttendanceMembers,
+	buildSessionDropInPayments,
 	formatSessionDate,
 	getTodaySessionDate,
 	parseAttendanceEntries,
@@ -9,6 +10,7 @@ import {
 	FULL_PASS_HOURS_PER_CLASS,
 	type AttendanceStatus
 } from '$lib/attendance.js';
+import { APP_TIMEZONE } from '$lib/locale.js';
 import { type Weekday } from '$lib/courses.js';
 import type { BillingPeriod } from '$lib/payment-plans.js';
 import type { PlanType } from '$lib/payment-plans.js';
@@ -40,6 +42,10 @@ function parseSessionDate(value: string | null) {
 	}
 
 	return value;
+}
+
+function paidOnSessionDate(sessionDate: string) {
+	return sql`(${payments.paidAt} AT TIME ZONE ${APP_TIMEZONE})::date = ${sessionDate}::date`;
 }
 
 function parseQuickDropInForm(formData: FormData): QuickDropInFormData {
@@ -86,6 +92,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				.orderBy(courses.name),
 			eligibleStudents: [],
 			dropInPlans: [],
+			sessionDropInPayments: [],
 			paymentMethods: PAYMENT_METHODS
 		};
 	}
@@ -103,11 +110,12 @@ export const load: PageServerLoad = async ({ url }) => {
 				.orderBy(courses.name),
 			eligibleStudents: [],
 			dropInPlans: [],
+			sessionDropInPayments: [],
 			paymentMethods: PAYMENT_METHODS
 		};
 	}
 
-	const [entitlementRows, attendanceRows, courseOptions, studentRows, planRows] =
+	const [entitlementRows, attendanceRows, courseOptions, studentRows, planRows, sessionPaymentRows] =
 		await Promise.all([
 		db
 			.select({
@@ -147,7 +155,30 @@ export const load: PageServerLoad = async ({ url }) => {
 			.from(students)
 			.where(eq(students.active, true))
 			.orderBy(students.fullName),
-		db.select().from(paymentPlans)
+		db.select().from(paymentPlans),
+		db
+			.select({
+				paymentId: payments.id,
+				studentId: payments.studentId,
+				studentName: students.fullName,
+				planName: paymentPlans.name,
+				totalAmount: payments.totalAmount,
+				discountPercent: payments.discountPercent,
+				paymentMethod: payments.paymentMethod,
+				classesGranted: paymentItems.classesGranted
+			})
+			.from(payments)
+			.innerJoin(paymentItems, eq(paymentItems.paymentId, payments.id))
+			.innerJoin(paymentPlans, eq(paymentItems.paymentPlanId, paymentPlans.id))
+			.leftJoin(students, eq(payments.studentId, students.id))
+			.where(
+				and(
+					eq(payments.purchaseType, 'drop_in_only'),
+					eq(paymentItems.itemType, 'drop_in'),
+					eq(paymentItems.courseId, courseId),
+					paidOnSessionDate(sessionDate)
+				)
+			)
 	]);
 
 	const attendanceByStudent = new Map<number, AttendanceStatus>();
@@ -168,6 +199,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	) as WizardStudent[];
 
 	const dropInPlans = serializeDropInPlans(planRows).filter((plan) => plan.planType === 'drop_in');
+	const sessionDropInPayments = buildSessionDropInPayments(sessionPaymentRows, attendanceByStudent);
 
 	return {
 		course: {
@@ -182,6 +214,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		courses: courseOptions,
 		eligibleStudents,
 		dropInPlans,
+		sessionDropInPayments,
 		paymentMethods: PAYMENT_METHODS
 	};
 };

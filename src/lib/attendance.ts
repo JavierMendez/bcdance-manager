@@ -1,5 +1,6 @@
 import { formatDropInCoverage, formatFullPassCoverage } from '$lib/groups.js';
-import { APP_LOCALE } from '$lib/locale.js';
+import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
+import { DROP_IN_GUEST_LABEL } from '$lib/payments.js';
 
 export const ATTENDANCE_STATUSES = ['attended', 'absent'] as const;
 export const FULL_PASS_HOURS_PER_CLASS = 1;
@@ -47,17 +48,17 @@ type EntitlementSnapshot = {
 };
 
 export function getTodaySessionDate(now = new Date()) {
-	return now.toISOString().slice(0, 10);
+	return getCalendarDateInAppTimezone(now);
 }
 
 export function formatSessionDate(dateValue: string) {
-	const [year, month, day] = dateValue.split('-').map(Number);
 	return new Intl.DateTimeFormat(APP_LOCALE, {
 		weekday: 'long',
 		day: '2-digit',
 		month: 'long',
-		year: 'numeric'
-	}).format(new Date(year, month - 1, day));
+		year: 'numeric',
+		timeZone: 'UTC'
+	}).format(new Date(`${dateValue}T12:00:00.000Z`));
 }
 
 export function parseAttendanceEntries(raw: string): {
@@ -108,13 +109,17 @@ export function resolveAttendanceEntitlement(
 	courseId: number,
 	monthly: EntitlementSnapshot | null,
 	dropIn: EntitlementSnapshot | null,
-	fullPass: EntitlementSnapshot | null
+	fullPass: EntitlementSnapshot | null,
+	hasSessionAttendance = false
 ): EntitlementSnapshot | null {
 	if (monthly?.courseId === courseId) {
 		return monthly;
 	}
 
-	if (dropIn?.courseId === courseId && (dropIn.classesRemaining ?? 0) > 0) {
+	if (
+		dropIn?.courseId === courseId &&
+		((dropIn.classesRemaining ?? 0) > 0 || hasSessionAttendance)
+	) {
 		return dropIn;
 	}
 
@@ -143,7 +148,7 @@ export function buildAttendanceMembers(
 		if (
 			row.entitlementType === 'drop_in' &&
 			row.courseId === courseId &&
-			(row.classesRemaining ?? 0) > 0
+			((row.classesRemaining ?? 0) > 0 || attendanceByStudent.has(row.student.id))
 		) {
 			dropInByStudent.set(row.student.id, row);
 		}
@@ -162,11 +167,13 @@ export function buildAttendanceMembers(
 	const members: AttendanceMember[] = [];
 
 	for (const studentId of studentIds) {
+		const hasSessionAttendance = attendanceByStudent.has(studentId);
 		const entitlement = resolveAttendanceEntitlement(
 			courseId,
 			monthlyByStudent.get(studentId) ?? null,
 			dropInByStudent.get(studentId) ?? null,
-			fullPassByStudent.get(studentId) ?? null
+			fullPassByStudent.get(studentId) ?? null,
+			hasSessionAttendance
 		);
 
 		if (!entitlement || !entitlement.student.active) {
@@ -212,4 +219,46 @@ export function getAttendanceStatusBadgeVariant(
 		case 'absent':
 			return 'destructive';
 	}
+}
+
+export type SessionDropInPayment = {
+	paymentId: number;
+	studentId: number | null;
+	studentName: string;
+	planName: string;
+	totalAmount: number;
+	discountPercent: number;
+	paymentMethod: string;
+	classesGranted: number;
+	attendanceStatus: AttendanceStatus | null;
+};
+
+export function buildSessionDropInPayments(
+	rows: {
+		paymentId: number;
+		studentId: number | null;
+		studentName: string | null;
+		planName: string;
+		totalAmount: number;
+		discountPercent: number;
+		paymentMethod: string;
+		classesGranted: number | null;
+	}[],
+	attendanceByStudent: Map<number, AttendanceStatus>
+): SessionDropInPayment[] {
+	return rows
+		.map((row) => ({
+			paymentId: row.paymentId,
+			studentId: row.studentId,
+			studentName: row.studentName ?? DROP_IN_GUEST_LABEL,
+			planName: row.planName,
+			totalAmount: row.totalAmount,
+			discountPercent: row.discountPercent,
+			paymentMethod: row.paymentMethod,
+			classesGranted: row.classesGranted ?? 1,
+			attendanceStatus: row.studentId
+				? (attendanceByStudent.get(row.studentId) ?? null)
+				: null
+		}))
+		.sort((a, b) => a.studentName.localeCompare(b.studentName, 'es'));
 }
