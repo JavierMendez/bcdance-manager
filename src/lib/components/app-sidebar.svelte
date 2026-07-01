@@ -67,6 +67,10 @@
 			return { section: 'Clases', page: 'Registrar asistencia' };
 		}
 
+		if (pathname.startsWith('/dashboard/clases/') && pathname.endsWith('/inscribir')) {
+			return { section: 'Clases', page: 'Inscribir alumno' };
+		}
+
 		if (pathname.startsWith('/dashboard/clases/') && pathname !== '/dashboard/clases/asistencia') {
 			return { section: 'Clases', page: 'Detalle de clase' };
 		}

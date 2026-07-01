@@ -9,11 +9,12 @@
 	} from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import PhoneInput from '$lib/components/phone-input.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { formatPrice } from '$lib/payment-plans.js';
-	import { formatPhone } from '$lib/phone.js';
+	import { formatPhone, extractPhoneDigits } from '$lib/phone.js';
 	import {
 		PURCHASE_TYPES,
 		PURCHASE_TYPE_LABELS,
@@ -46,6 +47,7 @@
 		courses,
 		plans,
 		paymentMethods,
+		intent = 'payment',
 		initialGroupId = '',
 		errors = {},
 		values = null
@@ -54,23 +56,35 @@
 		courses: WizardCourse[];
 		plans: WizardPaymentPlan[];
 		paymentMethods: readonly PaymentMethod[];
+		intent?: 'payment' | 'enrollment';
 		initialGroupId?: string;
-		errors?: Partial<Record<keyof PaymentWizardData, string>>;
-		values?: PaymentWizardData | null;
+		errors?: Partial<Record<keyof PaymentWizardData, string>> & {
+			newFullName?: string;
+			newPhone?: string;
+		};
+		values?: (PaymentWizardData & {
+			studentMode?: string;
+			newFullName?: string;
+			newPhone?: string;
+		}) | null;
 	} = $props();
 
-	const steps = [
-		'Alumno',
-		'Tipo de compra',
-		'Detalle',
-		'Pago',
-		'Confirmación'
-	] as const;
+	const isEnrollment = $derived(intent === 'enrollment');
+	const lockCourse = $derived(isEnrollment && Boolean(initialGroupId));
+
+	const steps = $derived(
+		isEnrollment
+			? (['Alumno', 'Modalidad', 'Detalle', 'Pago', 'Confirmación'] as const)
+			: (['Alumno', 'Tipo de compra', 'Detalle', 'Pago', 'Confirmación'] as const)
+	);
 
 	let currentStep = $state(0);
 	let submitting = $state(false);
 
+	let studentMode = $state<'existing' | 'new'>('existing');
 	let studentId = $state('');
+	let newFullName = $state('');
+	let newPhone = $state('');
 	let purchaseType = $state<PurchaseType>('monthly_only');
 	let courseId = $state('');
 	let monthlyPlanId = $state('');
@@ -80,7 +94,12 @@
 	let paidAt = $state('');
 	let discountPercent = $state('0');
 	let notes = $state('');
-	let stepErrors = $state<Partial<Record<keyof PaymentWizardData, string>>>({});
+	let stepErrors = $state<
+		Partial<Record<keyof PaymentWizardData, string>> & {
+			newFullName?: string;
+			newPhone?: string;
+		}
+	>({});
 
 	const monthlyPlans = $derived(plans.filter((plan) => plan.planType === 'monthly'));
 	const fullPassPlans = $derived(plans.filter((plan) => plan.planType === 'full_pass'));
@@ -154,7 +173,10 @@
 
 	$effect(() => {
 		if (values) {
+			studentMode = values.studentMode === 'new' ? 'new' : 'existing';
 			studentId = values.studentId;
+			newFullName = values.newFullName ?? '';
+			newPhone = extractPhoneDigits(values.newPhone ?? '');
 			purchaseType = values.purchaseType;
 			courseId = values.courseId;
 			monthlyPlanId = values.monthlyPlanId;
@@ -177,6 +199,26 @@
 	});
 
 	function validateCurrentStep() {
+		if (isEnrollment && currentStep === 0) {
+			const enrollmentErrors: Partial<Record<'studentId' | 'newFullName' | 'newPhone', string>> = {};
+
+			if (studentMode === 'existing') {
+				if (!studentId) {
+					enrollmentErrors.studentId = 'Selecciona un alumno.';
+				}
+			} else {
+				if (!newFullName.trim()) {
+					enrollmentErrors.newFullName = 'El nombre completo es obligatorio.';
+				}
+				if (!newPhone.trim()) {
+					enrollmentErrors.newPhone = 'El teléfono es obligatorio.';
+				}
+			}
+
+			stepErrors = enrollmentErrors;
+			return Object.keys(enrollmentErrors).length === 0;
+		}
+
 		const partial: PaymentWizardData = {
 			studentId: currentStep >= 0 ? studentId : '',
 			purchaseType: currentStep >= 1 ? purchaseType : 'monthly_only',
@@ -275,7 +317,10 @@
 			};
 		}}
 	>
-		<input type="hidden" name="studentId" value={studentId} />
+		<input type="hidden" name="studentMode" value={studentMode} />
+		<input type="hidden" name="studentId" value={studentMode === 'existing' ? studentId : ''} />
+		<input type="hidden" name="newFullName" value={studentMode === 'new' ? newFullName : ''} />
+		<input type="hidden" name="newPhone" value={studentMode === 'new' ? newPhone : ''} />
 		<input type="hidden" name="purchaseType" value={purchaseType} />
 		<input type="hidden" name="courseId" value={courseId} />
 		<input type="hidden" name="groupId" value={courseId} />
@@ -290,6 +335,66 @@
 		<div class="rounded-xl border p-6">
 			{#if currentStep === 0}
 				<FieldGroup>
+					{#if isEnrollment}
+						<Field>
+							<FieldLabel>¿Cómo quieres registrar al alumno?</FieldLabel>
+							<div class="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									variant={studentMode === 'existing' ? 'default' : 'outline'}
+									size="sm"
+									onclick={() => (studentMode = 'existing')}
+								>
+									Alumno existente
+								</Button>
+								<Button
+									type="button"
+									variant={studentMode === 'new' ? 'default' : 'outline'}
+									size="sm"
+									onclick={() => (studentMode = 'new')}
+								>
+									Nuevo alumno
+								</Button>
+							</div>
+						</Field>
+
+						{#if studentMode === 'existing'}
+							<Field data-invalid={stepErrors.studentId ? true : undefined}>
+								<FieldLabel for="studentId">Alumno</FieldLabel>
+								<FieldDescription>Selecciona el alumno que quieres inscribir en esta clase.</FieldDescription>
+								<select
+									id="studentId"
+									bind:value={studentId}
+									class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+								>
+									<option value="">Selecciona un alumno</option>
+									{#each students as student (student.id)}
+										<option value={String(student.id)}>
+											{student.fullName} — {formatPhone(student.phone)}
+										</option>
+									{/each}
+								</select>
+								{#if stepErrors.studentId}
+									<FieldError>{stepErrors.studentId}</FieldError>
+								{/if}
+							</Field>
+						{:else}
+							<Field data-invalid={stepErrors.newFullName ? true : undefined}>
+								<FieldLabel for="newFullName">Nombre completo</FieldLabel>
+								<Input id="newFullName" bind:value={newFullName} required />
+								{#if stepErrors.newFullName}
+									<FieldError>{stepErrors.newFullName}</FieldError>
+								{/if}
+							</Field>
+							<Field data-invalid={stepErrors.newPhone ? true : undefined}>
+								<FieldLabel for="newPhone">Teléfono</FieldLabel>
+								<PhoneInput id="newPhone" bind:value={newPhone} required />
+								{#if stepErrors.newPhone}
+									<FieldError>{stepErrors.newPhone}</FieldError>
+								{/if}
+							</Field>
+						{/if}
+					{:else}
 					<Field data-invalid={stepErrors.studentId ? true : undefined}>
 						<FieldLabel for="studentId">Alumno</FieldLabel>
 						<FieldDescription>
@@ -310,6 +415,7 @@
 							<FieldError>{stepErrors.studentId}</FieldError>
 						{/if}
 					</Field>
+					{/if}
 				</FieldGroup>
 			{:else if currentStep === 1}
 				<div class="grid gap-4 md:grid-cols-2">
@@ -338,16 +444,20 @@
 					{#if needsMonthly}
 						<Field data-invalid={stepErrors.courseId ? true : undefined}>
 							<FieldLabel for="courseId">Clase</FieldLabel>
-							<select
-								id="courseId"
-								bind:value={courseId}
-								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
-							>
-								<option value="">Selecciona una clase</option>
-								{#each courses as course (course.id)}
-									<option value={String(course.id)}>{course.name}</option>
-								{/each}
-							</select>
+							{#if lockCourse && selectedCourse}
+								<Input value={selectedCourse.name} disabled readonly />
+							{:else}
+								<select
+									id="courseId"
+									bind:value={courseId}
+									class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+								>
+									<option value="">Selecciona una clase</option>
+									{#each courses as course (course.id)}
+										<option value={String(course.id)}>{course.name}</option>
+									{/each}
+								</select>
+							{/if}
 							{#if stepErrors.courseId}
 								<FieldError>{stepErrors.courseId}</FieldError>
 							{/if}
@@ -407,20 +517,24 @@
 
 					{#if needsDropIn}
 						<Field data-invalid={stepErrors.courseId ? true : undefined}>
-							<FieldLabel for="courseId">Clase</FieldLabel>
+							<FieldLabel for="courseId-dropin">Clase</FieldLabel>
 							<FieldDescription>
 								Clase a la que asistirá el alumno con este pago por clase.
 							</FieldDescription>
-							<select
-								id="courseId"
-								bind:value={courseId}
-								class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
-							>
-								<option value="">Selecciona una clase</option>
-								{#each courses as course (course.id)}
-									<option value={String(course.id)}>{course.name}</option>
-								{/each}
-							</select>
+							{#if lockCourse && selectedCourse}
+								<Input value={selectedCourse.name} disabled readonly />
+							{:else}
+								<select
+									id="courseId-dropin"
+									bind:value={courseId}
+									class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+								>
+									<option value="">Selecciona una clase</option>
+									{#each courses as course (course.id)}
+										<option value={String(course.id)}>{course.name}</option>
+									{/each}
+								</select>
+							{/if}
 							{#if stepErrors.courseId}
 								<FieldError>{stepErrors.courseId}</FieldError>
 							{/if}
@@ -517,7 +631,7 @@
 							</div>
 						{/if}
 						<div class="flex items-center justify-between border-t pt-2">
-							<span class="font-medium">Total a registrar</span>
+							<span class="font-medium">{isEnrollment ? 'Total a cobrar' : 'Total a registrar'}</span>
 							<span class="text-2xl font-bold">{formatPrice(paymentTotals.totalAmount)}</span>
 						</div>
 					</div>
@@ -532,7 +646,11 @@
 					<div class="grid gap-3 sm:grid-cols-2">
 						<div class="rounded-lg border p-4">
 							<p class="text-muted-foreground text-sm">Alumno</p>
-							<p class="font-medium">{selectedStudent?.fullName ?? DROP_IN_GUEST_LABEL}</p>
+							<p class="font-medium">
+								{isEnrollment && studentMode === 'new'
+									? newFullName
+									: (selectedStudent?.fullName ?? DROP_IN_GUEST_LABEL)}
+							</p>
 						</div>
 						<div class="rounded-lg border p-4">
 							<p class="text-muted-foreground text-sm">Método de pago</p>
@@ -593,7 +711,9 @@
 
 					{#if Object.keys(errors).length > 0}
 						<p class="text-destructive text-sm">
-							Revisa los datos del formulario antes de registrar el pago.
+							{isEnrollment
+								? 'Revisa los datos del formulario antes de inscribir al alumno.'
+								: 'Revisa los datos del formulario antes de registrar el pago.'}
 						</p>
 					{/if}
 				</div>
@@ -613,7 +733,13 @@
 				</Button>
 			{:else}
 				<Button type="submit" disabled={submitting}>
-					{submitting ? 'Registrando...' : 'Registrar pago'}
+					{submitting
+						? isEnrollment
+							? 'Inscribiendo...'
+							: 'Registrando...'
+						: isEnrollment
+							? 'Inscribir alumno'
+							: 'Registrar pago'}
 				</Button>
 			{/if}
 		</div>

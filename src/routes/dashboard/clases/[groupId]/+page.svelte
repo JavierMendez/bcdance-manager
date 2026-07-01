@@ -34,7 +34,7 @@
 			</div>
 		</div>
 		<div class="flex flex-wrap gap-2">
-			<Button href="/dashboard/pagos/registrar?groupId={classGroup.id}">
+			<Button href="/dashboard/clases/{classGroup.id}/inscribir">
 				<UserPlusIcon data-icon="inline-start" />
 				Inscribir alumno
 			</Button>
@@ -118,7 +118,7 @@
 		<Card.Root>
 			<Card.Header class="flex flex-row items-center justify-between">
 				<Card.Title>Alumnos inscritos</Card.Title>
-				<Button size="sm" href="/dashboard/pagos/registrar?groupId={classGroup.id}">
+				<Button size="sm" href="/dashboard/clases/{classGroup.id}/inscribir">
 					<UserPlusIcon data-icon="inline-start" />
 					Inscribir
 				</Button>
