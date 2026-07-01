@@ -12,8 +12,6 @@
 	import {
 		getPaymentStatusBadgeVariant
 	} from '$lib/payments.js';
-	import { formatPrice } from '$lib/payment-plans.js';
-	import { formatPhone } from '$lib/phone.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -56,7 +54,7 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-2xl font-bold tracking-tight">Clases</h2>
 			<p class="text-muted-foreground text-sm">
-				Consulta las clases activas, sus horarios y los alumnos con plan mensual o créditos por clase.
+				Consulta las clases activas, sus horarios y vigencia.
 			</p>
 		</div>
 		<div class="flex flex-wrap gap-2">
@@ -107,48 +105,37 @@
 			<div class="flex flex-col gap-4">
 				<h3 class="text-lg font-semibold">Clases activas</h3>
 				{#each activeGroups as group (group.id)}
-					<Card.Root>
+					<Card.Root class="group relative transition-colors hover:bg-muted/40">
+						<a
+							href="/dashboard/clases/{group.id}"
+							class="absolute inset-0 z-0 rounded-xl"
+							aria-label="Ver detalle de {group.name}"
+						>
+							<span class="sr-only">Ver detalle de {group.name}</span>
+						</a>
 						<Card.Header>
 							<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 								<div class="flex flex-col gap-2">
 									<div class="flex flex-wrap items-center gap-2">
-										<Card.Title>
-											<a href="/dashboard/clases/{group.id}" class="hover:underline">
-												{group.name}
-											</a>
-										</Card.Title>
+										<Card.Title>{group.name}</Card.Title>
 										<Badge>Vigente</Badge>
 										<Badge variant="secondary">
 											<UsersIcon />
 											{group.enrolledCount} alumno{group.enrolledCount === 1 ? '' : 's'}
-											{#if group.dropInCount > 0}
-												· {group.dropInCount} por clase
-											{/if}
 										</Badge>
-										{#if group.dropInPayments.length > 0}
-											<Badge variant="outline">
-												{group.dropInPayments.length} pago{group.dropInPayments.length === 1 ? '' : 's'} por clase
-											</Badge>
-										{/if}
 									</div>
 									<Card.Description>{group.description}</Card.Description>
 								</div>
 								<Button
 									size="sm"
-									variant="outline"
-									href="/dashboard/clases/{group.id}"
-								>
-									Ver clase
-								</Button>
-								<Button
-									size="sm"
+									class="relative z-10"
 									href="/dashboard/clases/asistencia?groupId={group.id}"
 								>
 									Registrar asistencia
 								</Button>
 							</div>
 						</Card.Header>
-						<Card.Content class="flex flex-col gap-4">
+						<Card.Content>
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
 									<ClockIcon />
@@ -159,89 +146,6 @@
 									<span>{formatGroupCourseMeta(group)}</span>
 								</div>
 							</div>
-
-							{#if group.members.length === 0 && group.dropInPayments.length === 0}
-								<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-8 text-center text-sm">
-									No hay alumnos con inscripción mensual ni créditos por clase activos en esta clase.
-								</div>
-							{:else}
-								{#if group.members.length > 0}
-									<div class="rounded-xl border">
-										<Table.Root>
-											<Table.Header>
-												<Table.Row>
-													<Table.Head>Alumno</Table.Head>
-													<Table.Head>Contacto</Table.Head>
-													<Table.Head>Modalidad</Table.Head>
-													<Table.Head>Plan</Table.Head>
-													<Table.Head>Cobertura</Table.Head>
-													<Table.Head>Estado pago</Table.Head>
-												</Table.Row>
-											</Table.Header>
-											<Table.Body>
-												{#each group.members as member (member.studentId)}
-													<Table.Row>
-														<Table.Cell>
-															<div class="flex flex-col gap-0.5">
-																<span class="font-medium">{member.fullName}</span>
-																{#if !member.studentActive}
-																	<span class="text-muted-foreground text-xs">Alumno inactivo</span>
-																{/if}
-															</div>
-														</Table.Cell>
-														<Table.Cell>
-															<span class="text-sm">{formatPhone(member.phone)}</span>
-														</Table.Cell>
-														<Table.Cell>{member.modalityLabel}</Table.Cell>
-														<Table.Cell>{member.planName}</Table.Cell>
-														<Table.Cell>{member.coverageLabel}</Table.Cell>
-														<Table.Cell>
-															<Badge variant={getPaymentStatusBadgeVariant(member.paymentStatus)}>
-																{getPaymentStatusLabel(member.paymentStatus)}
-															</Badge>
-														</Table.Cell>
-													</Table.Row>
-												{/each}
-											</Table.Body>
-										</Table.Root>
-									</div>
-								{/if}
-
-								{#if group.dropInPayments.length > 0}
-									<div class="flex flex-col gap-3">
-										<div>
-											<h4 class="text-sm font-semibold">Pagos por clase registrados</h4>
-											<p class="text-muted-foreground text-sm">
-												Incluye pagos sin alumno asignado y clases sueltas cobradas en esta clase.
-											</p>
-										</div>
-										<div class="rounded-xl border">
-											<Table.Root>
-												<Table.Header>
-													<Table.Row>
-														<Table.Head>Alumno</Table.Head>
-														<Table.Head>Plan</Table.Head>
-														<Table.Head>Monto</Table.Head>
-														<Table.Head>Método</Table.Head>
-														<Table.Head>Fecha</Table.Head>
-													</Table.Row>
-												</Table.Header>
-												<Table.Body>
-													{#each group.dropInPayments as payment (payment.paymentId)}
-														<Table.Row>
-															<Table.Cell class="font-medium">{payment.studentName}</Table.Cell>
-															<Table.Cell>{payment.planName}</Table.Cell>
-															<Table.Cell>{formatPrice(payment.totalAmount)}</Table.Cell>
-															<Table.Cell>{payment.paymentMethod}</Table.Cell>
-															<Table.Cell>{payment.paidAtLabel}</Table.Cell>
-														</Table.Row>
-													{/each}
-												</Table.Body>
-											</Table.Root>
-										</div>
-									</div>
-								{/if}
-							{/if}
 						</Card.Content>
 					</Card.Root>
 				{/each}
