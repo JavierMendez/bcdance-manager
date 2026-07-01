@@ -384,4 +384,24 @@ export function attachDropInPaymentsToGroups(
 	}));
 }
 
+export function getEnrolledStudentIdsForClass(
+	classGroup: Pick<SerializedClassGroup, 'id' | 'startDate' | 'endDate'>,
+	entitlements: EntitlementRow[],
+	now = new Date()
+): number[] {
+	const placeholder: SerializedClassGroup = {
+		id: classGroup.id,
+		programId: 0,
+		name: '',
+		description: '',
+		schedule: '',
+		days: [],
+		startDate: classGroup.startDate,
+		endDate: classGroup.endDate
+	};
+
+	const [built] = buildClassGroups([placeholder], entitlements, now);
+	return built.members.map((member) => member.studentId);
+}
+
 export type { Weekday };

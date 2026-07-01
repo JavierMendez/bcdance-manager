@@ -111,7 +111,7 @@
 </script>
 
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { authClient } from '$lib/auth-client.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -135,10 +135,23 @@
 	}
 
 	async function handleSignOut() {
+		if (signingOut) return;
+
 		signingOut = true;
-		await authClient.signOut();
-		signingOut = false;
-		await goto('/login');
+
+		try {
+			const { error } = await authClient.signOut();
+
+			if (error) {
+				console.error('No se pudo cerrar sesión:', error);
+				return;
+			}
+
+			await invalidateAll();
+			await goto('/login');
+		} finally {
+			signingOut = false;
+		}
 	}
 
 	$effect(() => {
@@ -242,7 +255,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
-						<button type="button" onclick={handleSignOut} disabled={signingOut} {...props}>
+						<button {...props} type="button" onclick={handleSignOut} disabled={signingOut}>
 							<LogOutIcon />
 							<span>{signingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}</span>
 						</button>

@@ -1,12 +1,18 @@
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
-import { groups, programs, paymentPlans, students } from '$lib/server/db/schema/index.js';
+import {
+	groups,
+	paymentPlans,
+	programs,
+	students
+} from '$lib/server/db/schema/index.js';
 import type { BillingPeriod } from '$lib/payment-plans.js';
 import type { PlanType } from '$lib/payment-plans.js';
 import { PAYMENT_METHODS, type WizardPaymentPlan, type WizardStudent } from '$lib/payments.js';
 import {
 	loadClassOptions,
+	loadEnrolledStudentIds,
 	registerPaymentWizard
 } from '$lib/server/register-payment-wizard.js';
 import type { Actions, PageServerLoad } from './$types.js';
@@ -20,7 +26,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const db = getDb();
 
-	const [classRow, studentRows, classRows, planRows] = await Promise.all([
+	const [classRow, studentRows, classRows, planRows, enrolledStudentIds] = await Promise.all([
 		db
 			.select({
 				id: groups.id,
@@ -40,7 +46,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			.from(students)
 			.where(eq(students.active, true)),
 		loadClassOptions(db),
-		db.select().from(paymentPlans)
+		db.select().from(paymentPlans),
+		loadEnrolledStudentIds(db, groupId)
 	]);
 
 	const classGroup = classRow[0];
@@ -55,6 +62,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			name: `${classGroup.name} — ${classGroup.schedule}`
 		},
 		students: studentRows as WizardStudent[],
+		enrolledStudentIds,
 		courses: classRows,
 		plans: planRows.map((plan) => ({
 			id: plan.id,
@@ -82,7 +90,8 @@ export const actions: Actions = {
 
 		return registerPaymentWizard(request, db, {
 			requireStudent: true,
-			redirectTo: `/dashboard/clases/${groupId}`
+			redirectTo: `/dashboard/clases/${groupId}`,
+			enrollmentGroupId: groupId
 		});
 	}
 };

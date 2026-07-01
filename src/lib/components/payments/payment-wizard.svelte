@@ -19,6 +19,8 @@
 		PURCHASE_TYPES,
 		PURCHASE_TYPE_LABELS,
 		getPurchaseTypeDescription,
+		buildEnrollmentModalityOptions,
+		getEnrollmentModalityKey,
 		calculatePaymentTotals,
 		calculateWizardTotal,
 		buildPaymentSummary,
@@ -49,6 +51,7 @@
 		paymentMethods,
 		intent = 'payment',
 		initialGroupId = '',
+		enrolledStudentIds = [],
 		errors = {},
 		values = null
 	}: {
@@ -58,6 +61,7 @@
 		paymentMethods: readonly PaymentMethod[];
 		intent?: 'payment' | 'enrollment';
 		initialGroupId?: string;
+		enrolledStudentIds?: readonly number[];
 		errors?: Partial<Record<keyof PaymentWizardData, string>> & {
 			newFullName?: string;
 			newPhone?: string;
@@ -74,9 +78,13 @@
 
 	const steps = $derived(
 		isEnrollment
-			? (['Alumno', 'Modalidad', 'Detalle', 'Pago', 'Confirmación'] as const)
+			? (['Alumno', 'Modalidad', 'Pago', 'Confirmación'] as const)
 			: (['Alumno', 'Tipo de compra', 'Detalle', 'Pago', 'Confirmación'] as const)
 	);
+
+	const confirmationStep = $derived(steps.length - 1);
+	const paymentStep = $derived(isEnrollment ? 2 : 3);
+	const detailStep = $derived(2);
 
 	let currentStep = $state(0);
 	let submitting = $state(false);
@@ -101,9 +109,47 @@
 		}
 	>({});
 
+	const enrolledStudentIdSet = $derived(new Set(enrolledStudentIds));
+	const isSelectedStudentEnrolled = $derived(
+		isEnrollment &&
+			studentMode === 'existing' &&
+			studentId !== '' &&
+			enrolledStudentIdSet.has(Number(studentId))
+	);
+
 	const monthlyPlans = $derived(plans.filter((plan) => plan.planType === 'monthly'));
 	const fullPassPlans = $derived(plans.filter((plan) => plan.planType === 'full_pass'));
 	const dropInPlans = $derived(plans.filter((plan) => plan.planType === 'drop_in'));
+	const enrollmentModalityOptions = $derived(
+		isEnrollment ? buildEnrollmentModalityOptions(monthlyPlans, fullPassPlans, dropInPlans) : []
+	);
+	const selectedModalityKey = $derived(
+		getEnrollmentModalityKey({ purchaseType, monthlyPlanId, fullPassPlanId, dropInPlanId })
+	);
+	const selectedModalityOption = $derived(
+		enrollmentModalityOptions.find((option) => option.key === selectedModalityKey) ?? null
+	);
+
+	const errorLabels: Record<string, string> = {
+		studentId: 'Alumno',
+		newFullName: 'Nombre completo',
+		newPhone: 'Teléfono',
+		purchaseType: 'Modalidad',
+		courseId: 'Clase',
+		monthlyPlanId: 'Plan mensual',
+		fullPassPlanId: 'Plan full pass',
+		dropInPlanId: 'Plan por clase',
+		paymentMethod: 'Método de pago',
+		paidAt: 'Fecha de pago',
+		discountPercent: 'Descuento'
+	};
+
+	const confirmationErrors = $derived(
+		Object.entries(errors).map(([key, message]) => ({
+			label: errorLabels[key] ?? key,
+			message
+		}))
+	);
 	const needsMonthly = $derived(
 		purchaseType === 'monthly_only' || purchaseType === 'combined'
 	);
@@ -150,10 +196,14 @@
 		return calculatePaymentTotals(subtotalAmount, Number.isNaN(parsed) ? 0 : parsed);
 	});
 
+	const enrollmentStudentName = $derived(
+		isEnrollment && studentMode === 'new' ? newFullName : (selectedStudent?.fullName ?? '')
+	);
+
 	const summary = $derived(
 		buildPaymentSummary(
 			purchaseType,
-			selectedStudent?.fullName ?? '',
+			enrollmentStudentName,
 			selectedCourse?.name ?? null,
 			selectedMonthlyPlan?.name ?? null,
 			selectedFullPassPlan?.name ?? null,
@@ -194,9 +244,24 @@
 	$effect(() => {
 		if (Object.keys(errors).length > 0) {
 			stepErrors = errors;
-			currentStep = 4;
+			currentStep = confirmationStep;
 		}
 	});
+
+	function clearStudentIdError() {
+		if (stepErrors.studentId) {
+			const { studentId: _removed, ...rest } = stepErrors;
+			stepErrors = rest;
+		}
+	}
+
+	function selectModality(option: (typeof enrollmentModalityOptions)[number]) {
+		purchaseType = option.purchaseType;
+		monthlyPlanId = option.monthlyPlanId;
+		fullPassPlanId = option.fullPassPlanId;
+		dropInPlanId = option.dropInPlanId;
+		stepErrors = {};
+	}
 
 	function validateCurrentStep() {
 		if (isEnrollment && currentStep === 0) {
@@ -205,6 +270,8 @@
 			if (studentMode === 'existing') {
 				if (!studentId) {
 					enrollmentErrors.studentId = 'Selecciona un alumno.';
+				} else if (enrolledStudentIdSet.has(Number(studentId))) {
+					enrollmentErrors.studentId = 'Este alumno ya está inscrito en esta clase.';
 				}
 			} else {
 				if (!newFullName.trim()) {
@@ -219,35 +286,68 @@
 			return Object.keys(enrollmentErrors).length === 0;
 		}
 
+		if (isEnrollment && currentStep === 1) {
+			const partial: PaymentWizardData = {
+				studentId: studentMode === 'existing' ? studentId : '0',
+				purchaseType,
+				courseId,
+				monthlyPlanId,
+				fullPassPlanId,
+				dropInPlanId,
+				paymentMethod: 'Efectivo',
+				paidAt: paidAt || '2000-01-01T00:00',
+				discountPercent: '0',
+				notes
+			};
+
+			const { errors: validationErrors } = validatePaymentWizard(partial, plans, courses);
+			const filtered: Partial<Record<keyof PaymentWizardData, string>> = {};
+
+			if (!selectedModalityKey) {
+				filtered.purchaseType = 'Selecciona una modalidad.';
+			}
+
+			if (validationErrors.courseId) filtered.courseId = validationErrors.courseId;
+			if (validationErrors.monthlyPlanId) filtered.monthlyPlanId = validationErrors.monthlyPlanId;
+			if (validationErrors.fullPassPlanId) filtered.fullPassPlanId = validationErrors.fullPassPlanId;
+			if (validationErrors.dropInPlanId) filtered.dropInPlanId = validationErrors.dropInPlanId;
+
+			stepErrors = filtered;
+			return Object.keys(filtered).length === 0;
+		}
+
+		const includesPlanDetails = isEnrollment ? currentStep >= 1 : currentStep >= detailStep;
+		const includesPaymentDetails = currentStep >= paymentStep;
+
 		const partial: PaymentWizardData = {
 			studentId: currentStep >= 0 ? studentId : '',
 			purchaseType: currentStep >= 1 ? purchaseType : 'monthly_only',
-			courseId: currentStep >= 2 && (needsMonthly || needsDropIn) ? courseId : '',
-			monthlyPlanId: currentStep >= 2 && needsMonthly ? monthlyPlanId : '',
-			fullPassPlanId: currentStep >= 2 && needsFullPass ? fullPassPlanId : '',
-			dropInPlanId: currentStep >= 2 && needsDropIn ? dropInPlanId : '',
-			paymentMethod: currentStep >= 3 ? paymentMethod : 'Efectivo',
-			paidAt: currentStep >= 3 ? paidAt : '',
-			discountPercent: currentStep >= 3 ? discountPercent : '0',
+			courseId: includesPlanDetails && (needsMonthly || needsDropIn) ? courseId : '',
+			monthlyPlanId: includesPlanDetails && needsMonthly ? monthlyPlanId : '',
+			fullPassPlanId: includesPlanDetails && needsFullPass ? fullPassPlanId : '',
+			dropInPlanId: includesPlanDetails && needsDropIn ? dropInPlanId : '',
+			paymentMethod: includesPaymentDetails ? paymentMethod : 'Efectivo',
+			paidAt: includesPaymentDetails ? paidAt : '',
+			discountPercent: includesPaymentDetails ? discountPercent : '0',
 			notes
 		};
 
 		const { errors: validationErrors } = validatePaymentWizard(partial, plans, courses);
 		const filtered: Partial<Record<keyof PaymentWizardData, string>> = {};
 
-		if (currentStep === 1) {
+		if (currentStep === 1 && !isEnrollment) {
 			if (validationErrors.purchaseType) filtered.purchaseType = validationErrors.purchaseType;
 			if (validationErrors.studentId) filtered.studentId = validationErrors.studentId;
 		}
 
-		if (currentStep === 2) {
+		if (currentStep === detailStep && !isEnrollment) {
 			if (validationErrors.courseId) filtered.courseId = validationErrors.courseId;
 			if (validationErrors.monthlyPlanId) filtered.monthlyPlanId = validationErrors.monthlyPlanId;
 			if (validationErrors.fullPassPlanId) filtered.fullPassPlanId = validationErrors.fullPassPlanId;
 			if (validationErrors.dropInPlanId) filtered.dropInPlanId = validationErrors.dropInPlanId;
 		}
 
-		if (currentStep === 3) {
+		if (currentStep === paymentStep) {
 			if (validationErrors.paymentMethod) filtered.paymentMethod = validationErrors.paymentMethod;
 			if (validationErrors.paidAt) filtered.paidAt = validationErrors.paidAt;
 			if (validationErrors.discountPercent) filtered.discountPercent = validationErrors.discountPercent;
@@ -359,12 +459,13 @@
 						</Field>
 
 						{#if studentMode === 'existing'}
-							<Field data-invalid={stepErrors.studentId ? true : undefined}>
+							<Field data-invalid={stepErrors.studentId || isSelectedStudentEnrolled ? true : undefined}>
 								<FieldLabel for="studentId">Alumno</FieldLabel>
 								<FieldDescription>Selecciona el alumno que quieres inscribir en esta clase.</FieldDescription>
 								<select
 									id="studentId"
 									bind:value={studentId}
+									onchange={clearStudentIdError}
 									class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
 								>
 									<option value="">Selecciona un alumno</option>
@@ -376,6 +477,8 @@
 								</select>
 								{#if stepErrors.studentId}
 									<FieldError>{stepErrors.studentId}</FieldError>
+								{:else if isSelectedStudentEnrolled}
+									<FieldError>Este alumno ya está inscrito en esta clase.</FieldError>
 								{/if}
 							</Field>
 						{:else}
@@ -388,7 +491,11 @@
 							</Field>
 							<Field data-invalid={stepErrors.newPhone ? true : undefined}>
 								<FieldLabel for="newPhone">Teléfono</FieldLabel>
-								<PhoneInput id="newPhone" bind:value={newPhone} required />
+								<PhoneInput
+									id="newPhone"
+									bind:value={newPhone}
+									required={studentMode === 'new'}
+								/>
 								{#if stepErrors.newPhone}
 									<FieldError>{stepErrors.newPhone}</FieldError>
 								{/if}
@@ -418,6 +525,61 @@
 					{/if}
 				</FieldGroup>
 			{:else if currentStep === 1}
+				{#if isEnrollment}
+					<div class="flex flex-col gap-4">
+						{#if lockCourse && selectedCourse}
+							<div class="bg-muted/50 rounded-lg border px-3 py-2 text-sm">
+								<span class="text-muted-foreground">Clase: </span>
+								<span class="font-medium">{selectedCourse.name}</span>
+							</div>
+						{/if}
+
+						{#if enrollmentModalityOptions.length === 0}
+							<p class="text-muted-foreground text-sm">
+								No hay planes de pago configurados. Créalos en Configuraciones.
+							</p>
+						{:else}
+							<div class="grid gap-4 md:grid-cols-2">
+								{#each enrollmentModalityOptions as option (option.key)}
+									<button
+										type="button"
+										class="text-start"
+										onclick={() => selectModality(option)}
+									>
+										<Card.Root
+											class={cn(
+												'h-full transition-colors',
+												selectedModalityKey === option.key &&
+													'border-primary ring-primary ring-1'
+											)}
+										>
+											<Card.Header>
+												<Card.Title class="text-base">{option.title}</Card.Title>
+												<Card.Description>{option.description}</Card.Description>
+											</Card.Header>
+											<Card.Content>
+												<p class="text-lg font-semibold">{formatPrice(option.price)}</p>
+											</Card.Content>
+										</Card.Root>
+									</button>
+								{/each}
+							</div>
+						{/if}
+
+						{#if stepErrors.purchaseType}
+							<p class="text-destructive text-sm">{stepErrors.purchaseType}</p>
+						{/if}
+						{#if stepErrors.monthlyPlanId}
+							<p class="text-destructive text-sm">{stepErrors.monthlyPlanId}</p>
+						{/if}
+						{#if stepErrors.fullPassPlanId}
+							<p class="text-destructive text-sm">{stepErrors.fullPassPlanId}</p>
+						{/if}
+						{#if stepErrors.dropInPlanId}
+							<p class="text-destructive text-sm">{stepErrors.dropInPlanId}</p>
+						{/if}
+					</div>
+				{:else}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each PURCHASE_TYPES as type (type)}
 						<button
@@ -439,7 +601,8 @@
 						</button>
 					{/each}
 				</div>
-			{:else if currentStep === 2}
+				{/if}
+			{:else if currentStep === detailStep && !isEnrollment}
 				<FieldGroup>
 					{#if needsMonthly}
 						<Field data-invalid={stepErrors.courseId ? true : undefined}>
@@ -569,7 +732,7 @@
 						</Field>
 					{/if}
 				</FieldGroup>
-			{:else if currentStep === 3}
+			{:else if currentStep === paymentStep}
 				<FieldGroup>
 					<Field data-invalid={stepErrors.paymentMethod ? true : undefined}>
 						<FieldLabel for="paymentMethod">Método de pago</FieldLabel>
@@ -636,10 +799,14 @@
 						</div>
 					</div>
 				</FieldGroup>
-			{:else}
+			{:else if currentStep === confirmationStep}
 				<div class="flex flex-col gap-4">
 					<div class="flex items-center gap-2">
-						<Badge>{PURCHASE_TYPE_LABELS[purchaseType]}</Badge>
+						<Badge>
+							{isEnrollment && selectedModalityOption
+								? selectedModalityOption.title
+								: PURCHASE_TYPE_LABELS[purchaseType]}
+						</Badge>
 						<span class="text-muted-foreground text-sm">{summary}</span>
 					</div>
 
@@ -709,12 +876,19 @@
 						</div>
 					</div>
 
-					{#if Object.keys(errors).length > 0}
-						<p class="text-destructive text-sm">
-							{isEnrollment
-								? 'Revisa los datos del formulario antes de inscribir al alumno.'
-								: 'Revisa los datos del formulario antes de registrar el pago.'}
-						</p>
+					{#if confirmationErrors.length > 0}
+						<div class="bg-destructive/10 text-destructive rounded-lg border border-destructive/30 px-4 py-3 text-sm">
+							<p class="font-medium">
+								{isEnrollment
+									? 'No se pudo completar la inscripción:'
+									: 'No se pudo completar el registro del pago:'}
+							</p>
+							<ul class="mt-2 list-disc ps-4">
+								{#each confirmationErrors as error (error.label)}
+									<li>{error.label}: {error.message}</li>
+								{/each}
+							</ul>
+						</div>
 					{/if}
 				</div>
 			{/if}
@@ -727,7 +901,11 @@
 			</Button>
 
 			{#if currentStep < steps.length - 1}
-				<Button type="button" onclick={nextStep}>
+				<Button
+					type="button"
+					onclick={nextStep}
+					disabled={isEnrollment && currentStep === 0 && isSelectedStudentEnrolled}
+				>
 					Siguiente
 					<ChevronRightIcon data-icon="inline-end" />
 				</Button>

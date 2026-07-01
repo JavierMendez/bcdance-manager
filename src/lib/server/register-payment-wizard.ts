@@ -24,6 +24,7 @@ import {
 	type WizardCourse,
 	type WizardPaymentPlan
 } from '$lib/payments.js';
+import { getEnrolledStudentIdsForClass } from '$lib/groups.js';
 import { validateStudentInput } from '$lib/students.js';
 
 function isUniqueViolation(error: unknown) {
@@ -72,9 +73,54 @@ export async function loadClassOptions(db: ReturnType<typeof getDb>): Promise<Wi
 	}));
 }
 
+export async function loadEnrolledStudentIds(
+	db: ReturnType<typeof getDb>,
+	groupId: number
+): Promise<number[]> {
+	const [groupRow, entitlementRows] = await Promise.all([
+		db
+			.select({
+				id: groups.id,
+				startDate: groups.startDate,
+				endDate: groups.endDate
+			})
+			.from(groups)
+			.where(eq(groups.id, groupId))
+			.limit(1),
+		db
+			.select({
+				entitlementType: studentEntitlements.entitlementType,
+				groupId: studentEntitlements.groupId,
+				endsAt: studentEntitlements.endsAt,
+				hoursRemaining: studentEntitlements.hoursRemaining,
+				classesRemaining: studentEntitlements.classesRemaining,
+				planName: paymentPlans.name,
+				student: {
+					id: students.id,
+					fullName: students.fullName,
+					phone: students.phone,
+					active: students.active
+				}
+			})
+			.from(studentEntitlements)
+			.innerJoin(students, eq(studentEntitlements.studentId, students.id))
+			.innerJoin(paymentPlans, eq(studentEntitlements.paymentPlanId, paymentPlans.id))
+			.where(eq(studentEntitlements.active, true))
+	]);
+
+	const classGroup = groupRow[0];
+
+	if (!classGroup) {
+		return [];
+	}
+
+	return getEnrolledStudentIdsForClass(classGroup, entitlementRows);
+}
+
 type RegisterPaymentWizardOptions = {
 	requireStudent?: boolean;
 	redirectTo: string;
+	enrollmentGroupId?: number;
 };
 
 export async function registerPaymentWizard(
@@ -117,6 +163,11 @@ export async function registerPaymentWizard(
 		validatePaymentWizard(paymentWizardData, plans, coursesList);
 
 	const formErrors: Record<string, string> = { ...errors };
+
+	if (wizardData.studentMode === 'new') {
+		delete formErrors.studentId;
+	}
+
 	let studentId = existingStudentId;
 
 	if (requireStudent || wizardData.studentMode === 'new') {
@@ -152,6 +203,14 @@ export async function registerPaymentWizard(
 			}
 		} else if (!studentId) {
 			formErrors.studentId = 'Selecciona un alumno.';
+		}
+	}
+
+	if (options.enrollmentGroupId && studentId) {
+		const enrolledStudentIds = await loadEnrolledStudentIds(db, options.enrollmentGroupId);
+
+		if (enrolledStudentIds.includes(studentId)) {
+			formErrors.studentId = 'Este alumno ya está inscrito en esta clase.';
 		}
 	}
 

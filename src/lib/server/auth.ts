@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { admin } from 'better-auth/plugins';
@@ -9,7 +10,8 @@ import { env } from '$env/dynamic/private';
 
 export const auth = betterAuth({
 	secret: env.BETTER_AUTH_SECRET,
-	baseURL: env.BETTER_AUTH_URL,
+	// In dev, omit baseURL so auth routes match the request origin (e.g. :5173 vs :5174).
+	baseURL: dev ? undefined : env.BETTER_AUTH_URL,
 	database: drizzleAdapter(getDb(), {
 		provider: 'pg',
 		schema

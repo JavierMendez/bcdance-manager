@@ -171,6 +171,110 @@ export function getPurchaseTypeDescription(type: PurchaseType) {
 	}
 }
 
+export type EnrollmentModalityOption = {
+	key: string;
+	purchaseType: PurchaseType;
+	monthlyPlanId: string;
+	fullPassPlanId: string;
+	dropInPlanId: string;
+	title: string;
+	description: string;
+	price: number;
+};
+
+export function buildEnrollmentModalityOptions(
+	monthlyPlans: WizardPaymentPlan[],
+	fullPassPlans: WizardPaymentPlan[],
+	dropInPlans: WizardPaymentPlan[]
+): EnrollmentModalityOption[] {
+	const options: EnrollmentModalityOption[] = [];
+
+	for (const plan of monthlyPlans) {
+		options.push({
+			key: `monthly:${plan.id}`,
+			purchaseType: 'monthly_only',
+			monthlyPlanId: String(plan.id),
+			fullPassPlanId: '',
+			dropInPlanId: '',
+			title: plan.name,
+			description: plan.description || 'Acceso mensual a esta clase.',
+			price: plan.price
+		});
+	}
+
+	for (const plan of fullPassPlans) {
+		const hours = plan.hoursIncluded ?? FULL_PASS_DEFAULT_HOURS;
+		options.push({
+			key: `full_pass:${plan.id}`,
+			purchaseType: 'full_pass_only',
+			monthlyPlanId: '',
+			fullPassPlanId: String(plan.id),
+			dropInPlanId: '',
+			title: plan.name,
+			description: plan.description || `${hours} horas para usar en cualquier clase.`,
+			price: plan.price
+		});
+	}
+
+	for (const plan of dropInPlans) {
+		const classes = plan.classesIncluded ?? DROP_IN_DEFAULT_CLASSES;
+		options.push({
+			key: `drop_in:${plan.id}`,
+			purchaseType: 'drop_in_only',
+			monthlyPlanId: '',
+			fullPassPlanId: '',
+			dropInPlanId: String(plan.id),
+			title: plan.name,
+			description:
+				plan.description ||
+				`Pago por clase (${classes} clase${classes === 1 ? '' : 's'} incluida${classes === 1 ? '' : 's'}).`,
+			price: plan.price
+		});
+	}
+
+	for (const monthly of monthlyPlans) {
+		for (const fullPass of fullPassPlans) {
+			options.push({
+				key: `combined:${monthly.id}:${fullPass.id}`,
+				purchaseType: 'combined',
+				monthlyPlanId: String(monthly.id),
+				fullPassPlanId: String(fullPass.id),
+				dropInPlanId: '',
+				title: `${monthly.name} + ${fullPass.name}`,
+				description: 'Plan mensual para esta clase y horas de full pass.',
+				price: monthly.price + fullPass.price
+			});
+		}
+	}
+
+	return options;
+}
+
+export function getEnrollmentModalityKey(data: {
+	purchaseType: PurchaseType;
+	monthlyPlanId: string;
+	fullPassPlanId: string;
+	dropInPlanId: string;
+}): string {
+	if (data.purchaseType === 'monthly_only' && data.monthlyPlanId) {
+		return `monthly:${data.monthlyPlanId}`;
+	}
+
+	if (data.purchaseType === 'full_pass_only' && data.fullPassPlanId) {
+		return `full_pass:${data.fullPassPlanId}`;
+	}
+
+	if (data.purchaseType === 'drop_in_only' && data.dropInPlanId) {
+		return `drop_in:${data.dropInPlanId}`;
+	}
+
+	if (data.purchaseType === 'combined' && data.monthlyPlanId && data.fullPassPlanId) {
+		return `combined:${data.monthlyPlanId}:${data.fullPassPlanId}`;
+	}
+
+	return '';
+}
+
 export function normalizeStudentId(value: string | number | null | undefined): number | null {
 	const parsed = typeof value === 'number' ? value : Number(value);
 	return parsed > 0 ? parsed : null;

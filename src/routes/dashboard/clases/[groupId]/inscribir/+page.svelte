@@ -24,6 +24,7 @@
 	<PaymentWizard
 		intent="enrollment"
 		students={data.students}
+		enrolledStudentIds={data.enrolledStudentIds}
 		courses={data.courses}
 		plans={data.plans}
 		paymentMethods={data.paymentMethods}
