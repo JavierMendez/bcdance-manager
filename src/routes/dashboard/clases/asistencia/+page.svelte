@@ -1,9 +1,9 @@
 <script lang="ts">
 	import DropInQuickRegisterDialog from '$lib/components/attendance/drop-in-quick-register-dialog.svelte';
+	import AttendanceStatusToggle from '$lib/components/attendance/attendance-status-toggle.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -267,33 +267,16 @@
 														</Table.Cell>
 														<Table.Cell>{member.coverageLabel}</Table.Cell>
 														<Table.Cell>
-															<ToggleGroup.Root
-																type="single"
-																variant="outline"
-																value={statuses[member.studentId] || undefined}
-																onValueChange={(value) => {
+															<AttendanceStatusToggle
+																value={statuses[member.studentId]}
+																savedStatus={member.currentStatus}
+																onValueChange={(next) => {
 																	statuses = {
 																		...statuses,
-																		[member.studentId]: (value as AttendanceStatus) ?? ''
+																		[member.studentId]: next
 																	};
 																}}
-															>
-																<ToggleGroup.Item value="attended" aria-label="Asistió">
-																	{ATTENDANCE_STATUS_LABELS.attended}
-																</ToggleGroup.Item>
-																<ToggleGroup.Item value="absent" aria-label="Falta">
-																	{ATTENDANCE_STATUS_LABELS.absent}
-																</ToggleGroup.Item>
-															</ToggleGroup.Root>
-															{#if member.currentStatus}
-																<div class="mt-2">
-																	<Badge
-																		variant={getAttendanceStatusBadgeVariant(member.currentStatus)}
-																	>
-																		Guardado: {ATTENDANCE_STATUS_LABELS[member.currentStatus]}
-																	</Badge>
-																</div>
-															{/if}
+															/>
 														</Table.Cell>
 													</Table.Row>
 												{/each}
@@ -328,33 +311,16 @@
 														</Table.Cell>
 														<Table.Cell>{member.coverageLabel}</Table.Cell>
 														<Table.Cell>
-															<ToggleGroup.Root
-																type="single"
-																variant="outline"
-																value={statuses[member.studentId] || undefined}
-																onValueChange={(value) => {
+															<AttendanceStatusToggle
+																value={statuses[member.studentId]}
+																savedStatus={member.currentStatus}
+																onValueChange={(next) => {
 																	statuses = {
 																		...statuses,
-																		[member.studentId]: (value as AttendanceStatus) ?? ''
+																		[member.studentId]: next
 																	};
 																}}
-															>
-																<ToggleGroup.Item value="attended" aria-label="Asistió">
-																	{ATTENDANCE_STATUS_LABELS.attended}
-																</ToggleGroup.Item>
-																<ToggleGroup.Item value="absent" aria-label="Falta">
-																	{ATTENDANCE_STATUS_LABELS.absent}
-																</ToggleGroup.Item>
-															</ToggleGroup.Root>
-															{#if member.currentStatus}
-																<div class="mt-2">
-																	<Badge
-																		variant={getAttendanceStatusBadgeVariant(member.currentStatus)}
-																	>
-																		Guardado: {ATTENDANCE_STATUS_LABELS[member.currentStatus]}
-																	</Badge>
-																</div>
-															{/if}
+															/>
 														</Table.Cell>
 													</Table.Row>
 												{/each}
