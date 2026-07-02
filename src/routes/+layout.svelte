@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import GlobalAlerts from '$lib/components/global-alerts.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 
 	let { children } = $props();
@@ -13,4 +14,5 @@
 	<meta name="theme-color" content="#000000" />
 </svelte:head>
 <ModeWatcher defaultMode="light" track={false} />
+<GlobalAlerts />
 {@render children()}
