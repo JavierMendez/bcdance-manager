@@ -4,6 +4,10 @@ export type SerializedProgram = {
 	description: string;
 };
 
+export type SerializedProgramWithUsage = SerializedProgram & {
+	classCount: number;
+};
+
 export type ProgramFormValues = {
 	name: string;
 	description: string;
@@ -25,5 +29,12 @@ export function validateProgramInput(data: ProgramFormValues) {
 	return {
 		errors,
 		values: { name, description }
+	};
+}
+
+export function toProgramFormValues(program: SerializedProgram): ProgramFormValues {
+	return {
+		name: program.name,
+		description: program.description
 	};
 }
