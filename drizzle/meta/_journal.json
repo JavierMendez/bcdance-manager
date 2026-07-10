@@ -45,6 +45,13 @@
       "breakpoints": true
     },
     {
+      "idx": 6,
+      "version": "7",
+      "when": 1782761043289,
+      "tag": "0006_add_drop_in_payments",
+      "breakpoints": true
+    },
+    {
       "idx": 7,
       "version": "7",
       "when": 1782762043289,
@@ -84,6 +91,13 @@
       "version": "7",
       "when": 1782767043289,
       "tag": "0012_add_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782768043289,
+      "tag": "0013_restore_drop_in_columns",
       "breakpoints": true
     }
   ]

@@ -3,7 +3,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { admin } from 'better-auth/plugins';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
-import postgres from 'postgres';
+import { createPostgresClient } from './lib/postgres-client.mjs';
 import { authSchema } from './auth-schema.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -28,7 +28,7 @@ if (!authSecret) {
 	process.exit(1);
 }
 
-const client = postgres(databaseUrl, { max: 1 });
+const client = createPostgresClient(databaseUrl, { max: 1 });
 const db = drizzle(client, { schema: authSchema });
 
 const existingAdmin = await db.execute(

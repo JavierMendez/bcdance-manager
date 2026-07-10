@@ -1,6 +1,6 @@
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
 import { env } from '$env/dynamic/private';
+import { createPostgresClient } from './postgres-client.js';
 import * as schema from './schema/index.js';
 
 let database: PostgresJsDatabase<typeof schema>;
@@ -11,7 +11,7 @@ export function getDb() {
 	}
 
 	if (!database) {
-		const client = postgres(env.DATABASE_URL);
+		const client = createPostgresClient(env.DATABASE_URL);
 		database = drizzle(client, { schema });
 	}
 

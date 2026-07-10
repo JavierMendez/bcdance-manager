@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
+import { createPostgresClient } from './lib/postgres-client.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -9,7 +9,7 @@ if (!databaseUrl) {
 	process.exit(1);
 }
 
-const client = postgres(databaseUrl, { max: 1 });
+const client = createPostgresClient(databaseUrl, { max: 1 });
 const db = drizzle(client);
 
 await migrate(db, { migrationsFolder: 'drizzle' });

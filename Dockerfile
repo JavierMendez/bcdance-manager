@@ -28,6 +28,7 @@ COPY --from=builder /app/drizzle ./drizzle
 COPY scripts/migrate.mjs scripts/migrate.mjs
 COPY scripts/seed-admin.mjs scripts/seed-admin.mjs
 COPY scripts/auth-schema.mjs scripts/auth-schema.mjs
+COPY scripts/lib/postgres-client.mjs scripts/lib/postgres-client.mjs
 COPY scripts/docker-entrypoint.sh docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 
