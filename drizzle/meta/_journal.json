@@ -99,6 +99,13 @@
       "when": 1782768043289,
       "tag": "0013_restore_drop_in_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782769043289,
+      "tag": "0014_enable_rls",
+      "breakpoints": true
     }
   ]
 }
