@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ExpenseDialog from '$lib/components/cash-flow/expense-dialog.svelte';
+	import AdditionalIncomeDialog from '$lib/components/cash-flow/additional-income-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -36,13 +37,22 @@
 	let fromDate = $state('');
 	let toDate = $state('');
 	let expenseDialogOpen = $state(false);
+	let additionalIncomeDialogOpen = $state(false);
 	let showSavedNotice = $state(false);
 	let showDeletedNotice = $state(false);
+	let showIncomeSavedNotice = $state(false);
+	let showIncomeDeletedNotice = $state(false);
 
 	const expenseErrors = $derived(
 		form?.mode === 'createExpense' ? (form.errors ?? {}) : {}
 	);
 	const expenseValues = $derived(form?.mode === 'createExpense' ? (form.values ?? null) : null);
+	const additionalIncomeErrors = $derived(
+		form?.mode === 'createAdditionalIncome' ? (form.errors ?? {}) : {}
+	);
+	const additionalIncomeValues = $derived(
+		form?.mode === 'createAdditionalIncome' ? (form.values ?? null) : null
+	);
 
 	const summary = $derived(data.summary);
 	const hasChartData = $derived(
@@ -83,11 +93,31 @@
 			const nextUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
 			history.replaceState({}, '', nextUrl);
 		}
+
+		if (params.get('incomeSaved') === '1') {
+			showIncomeSavedNotice = true;
+			params.delete('incomeSaved');
+			const nextUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
+			history.replaceState({}, '', nextUrl);
+		}
+
+		if (params.get('incomeDeleted') === '1') {
+			showIncomeDeletedNotice = true;
+			params.delete('incomeDeleted');
+			const nextUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, '');
+			history.replaceState({}, '', nextUrl);
+		}
 	});
 
 	$effect(() => {
 		if (form?.mode === 'createExpense' && form.errors) {
 			expenseDialogOpen = true;
+		}
+	});
+
+	$effect(() => {
+		if (form?.mode === 'createAdditionalIncome' && form.errors) {
+			additionalIncomeDialogOpen = true;
 		}
 	});
 
@@ -127,13 +157,20 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-2xl font-bold tracking-tight">Flujo de efectivo</h2>
 			<p class="text-muted-foreground text-sm">
-				Compara ingresos por pagos registrados y egresos del negocio en el periodo que elijas.
+				Compara ingresos (pagos e ingresos adicionales) y egresos del negocio en el periodo que
+				elijas.
 			</p>
 		</div>
-		<Button onclick={() => (expenseDialogOpen = true)}>
-			<PlusIcon data-icon="inline-start" />
-			Registrar egreso
-		</Button>
+		<div class="flex flex-wrap gap-2">
+			<Button variant="outline" onclick={() => (additionalIncomeDialogOpen = true)}>
+				<PlusIcon data-icon="inline-start" />
+				Registrar ingreso adicional
+			</Button>
+			<Button onclick={() => (expenseDialogOpen = true)}>
+				<PlusIcon data-icon="inline-start" />
+				Registrar egreso
+			</Button>
+		</div>
 	</div>
 
 	{#if showSavedNotice}
@@ -145,6 +182,18 @@
 	{#if showDeletedNotice}
 		<Card.Root class="border-primary/30 bg-primary/5">
 			<Card.Content class="py-4 text-sm">El egreso se eliminó correctamente.</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if showIncomeSavedNotice}
+		<Card.Root class="border-primary/30 bg-primary/5">
+			<Card.Content class="py-4 text-sm">El ingreso adicional se registró correctamente.</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if showIncomeDeletedNotice}
+		<Card.Root class="border-primary/30 bg-primary/5">
+			<Card.Content class="py-4 text-sm">El ingreso adicional se eliminó correctamente.</Card.Content>
 		</Card.Root>
 	{/if}
 
@@ -214,7 +263,7 @@
 			</Card.Header>
 			<Card.Footer>
 				<p class="text-muted-foreground text-sm">
-					{summary.incomeCount} pago{summary.incomeCount === 1 ? '' : 's'} registrado{summary.incomeCount ===
+					{summary.incomeCount} ingreso{summary.incomeCount === 1 ? '' : 's'} registrado{summary.incomeCount ===
 					1
 						? ''
 						: 's'}
@@ -363,13 +412,13 @@
 		<Card.Header>
 			<Card.Title>Movimientos del periodo</Card.Title>
 			<Card.Description>
-				Lista cronológica de ingresos (pagos) y egresos registrados
+				Lista cronológica de ingresos y egresos registrados
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			{#if summary.movements.length === 0}
 				<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
-					No hay movimientos en este periodo. Registra pagos o egresos para ver el flujo de efectivo.
+					No hay movimientos en este periodo. Registra pagos, ingresos adicionales o egresos para ver el flujo de efectivo.
 				</div>
 			{:else}
 				<div class="rounded-xl border">
@@ -403,7 +452,7 @@
 										{movement.type === 'income' ? '+' : '−'}{formatCashFlowCurrency(movement.amount)}
 									</Table.Cell>
 									<Table.Cell>
-										{#if movement.type === 'expense'}
+										{#if movement.sourceKind === 'expense'}
 											<form
 												method="POST"
 												action="?/deleteExpense"
@@ -419,6 +468,30 @@
 													variant="ghost"
 													size="icon-sm"
 													aria-label="Eliminar egreso"
+												>
+													<Trash2Icon />
+												</Button>
+											</form>
+										{:else if movement.sourceKind === 'additional_income'}
+											<form
+												method="POST"
+												action="?/deleteAdditionalIncome"
+												use:enhance={() => {
+													return async ({ update }) => {
+														await update({ invalidateAll: true });
+													};
+												}}
+											>
+												<input
+													type="hidden"
+													name="additionalIncomeId"
+													value={movement.sourceId}
+												/>
+												<Button
+													type="submit"
+													variant="ghost"
+													size="icon-sm"
+													aria-label="Eliminar ingreso adicional"
 												>
 													<Trash2Icon />
 												</Button>
@@ -439,5 +512,12 @@
 		paymentMethods={data.paymentMethods}
 		errors={expenseErrors}
 		values={expenseValues}
+	/>
+
+	<AdditionalIncomeDialog
+		bind:open={additionalIncomeDialogOpen}
+		paymentMethods={data.paymentMethods}
+		errors={additionalIncomeErrors}
+		values={additionalIncomeValues}
 	/>
 </div>

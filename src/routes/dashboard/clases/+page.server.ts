@@ -91,6 +91,7 @@ export const load: PageServerLoad = async () => {
 				planName: paymentPlans.name,
 				totalAmount: payments.totalAmount,
 				paymentMethod: payments.paymentMethod,
+				classesGranted: paymentItems.classesGranted,
 				paidAt: payments.paidAt
 			})
 			.from(payments)

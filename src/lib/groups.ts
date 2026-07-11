@@ -247,7 +247,6 @@ export function buildClassGroups(
 	return classes.map((classGroup) => {
 		const membersByStudent = new Map<number, GroupMember>();
 		const monthlyStudentIds = new Set<number>();
-		const dropInStudentIds = new Set<number>();
 		const fullPassStudentIds = new Set<number>();
 
 		for (const row of entitlements) {
@@ -277,8 +276,6 @@ export function buildClassGroups(
 			if ((row.classesRemaining ?? 0) <= 0) {
 				continue;
 			}
-
-			dropInStudentIds.add(row.student.id);
 
 			if (membersByStudent.has(row.student.id)) {
 				const existing = membersByStudent.get(row.student.id)!;
@@ -337,7 +334,7 @@ export function buildClassGroups(
 			active: isClassActive(classGroup, now),
 			enrolledCount: monthlyStudentIds.size,
 			fullPassCount: fullPassStudentIds.size,
-			dropInCount: dropInStudentIds.size,
+			dropInCount: 0,
 			members,
 			dropInPayments: []
 		};
@@ -398,15 +395,23 @@ export function attachDropInPaymentsToGroups(
 		planName: string;
 		totalAmount: number;
 		paymentMethod: string;
+		classesGranted: number | null;
 		paidAt: Date;
 	}[]
 ): ClassGroup[] {
 	const paymentsByGroup = new Map<number, ClassDropInPayment[]>();
+	const dropInCountByGroup = new Map<number, number>();
 
 	for (const row of paymentRows) {
 		if (!row.groupId) {
 			continue;
 		}
+
+		const classesGranted = row.classesGranted ?? 1;
+		dropInCountByGroup.set(
+			row.groupId,
+			(dropInCountByGroup.get(row.groupId) ?? 0) + classesGranted
+		);
 
 		const payment: ClassDropInPayment = {
 			paymentId: row.paymentId,
@@ -431,6 +436,7 @@ export function attachDropInPaymentsToGroups(
 
 	return groups.map((group) => ({
 		...group,
+		dropInCount: dropInCountByGroup.get(group.id) ?? 0,
 		dropInPayments: paymentsByGroup.get(group.id) ?? []
 	}));
 }

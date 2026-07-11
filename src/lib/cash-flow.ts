@@ -62,9 +62,20 @@ export type CashFlowExpenseRow = {
 	paidAt: Date;
 };
 
+export type CashFlowAdditionalIncomeRow = {
+	id: number;
+	amount: number;
+	description: string;
+	paymentMethod: PaymentMethod;
+	paidAt: Date;
+};
+
+export type CashFlowMovementSourceKind = 'payment' | 'additional_income' | 'expense';
+
 export type CashFlowMovement = {
 	id: string;
 	sourceId: number;
+	sourceKind: CashFlowMovementSourceKind;
 	type: 'income' | 'expense';
 	amount: number;
 	label: string;
@@ -109,6 +120,15 @@ export type ExpenseFormValues = {
 	paymentMethod: PaymentMethod;
 	paidAt: string;
 };
+
+export type AdditionalIncomeFormValues = {
+	amount: string;
+	description: string;
+	paymentMethod: PaymentMethod;
+	paidAt: string;
+};
+
+export const ADDITIONAL_INCOME_DETAIL_LABEL = 'Ingreso adicional';
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 	renta: 'Renta',
@@ -320,11 +340,14 @@ function enumerateMonths(from: string, to: string) {
 }
 
 export function buildCashFlowSummary(
-	incomeRows: CashFlowIncomeRow[],
+	paymentIncomeRows: CashFlowIncomeRow[],
+	additionalIncomeRows: CashFlowAdditionalIncomeRow[],
 	expenseRows: CashFlowExpenseRow[],
 	period: CashFlowPeriod
 ): CashFlowSummary {
-	const totalIncome = incomeRows.reduce((sum, row) => sum + row.totalAmount, 0);
+	const totalPaymentIncome = paymentIncomeRows.reduce((sum, row) => sum + row.totalAmount, 0);
+	const totalAdditionalIncome = additionalIncomeRows.reduce((sum, row) => sum + row.amount, 0);
+	const totalIncome = totalPaymentIncome + totalAdditionalIncome;
 	const totalExpenses = expenseRows.reduce((sum, row) => sum + row.amount, 0);
 
 	const categoryTotals = new Map<ExpenseCategory, number>();
@@ -347,9 +370,12 @@ export function buildCashFlowSummary(
 
 	if (useMonthlyBuckets) {
 		for (const bucket of enumerateMonths(period.from, period.to)) {
-			const income = incomeRows
+			const paymentIncome = paymentIncomeRows
 				.filter((row) => getCalendarDateInTimezone(row.paidAt).startsWith(bucket.key))
 				.reduce((sum, row) => sum + row.totalAmount, 0);
+			const additionalIncome = additionalIncomeRows
+				.filter((row) => getCalendarDateInTimezone(row.paidAt).startsWith(bucket.key))
+				.reduce((sum, row) => sum + row.amount, 0);
 			const expenses = expenseRows
 				.filter((row) => getCalendarDateInTimezone(row.paidAt).startsWith(bucket.key))
 				.reduce((sum, row) => sum + row.amount, 0);
@@ -358,16 +384,19 @@ export function buildCashFlowSummary(
 				key: bucket.key,
 				label: bucket.label,
 				fullLabel: bucket.fullLabel,
-				income,
+				income: paymentIncome + additionalIncome,
 				expenses,
-				net: income - expenses
+				net: paymentIncome + additionalIncome - expenses
 			});
 		}
 	} else {
 		for (const day of enumerateDates(period.from, period.to)) {
-			const income = incomeRows
+			const paymentIncome = paymentIncomeRows
 				.filter((row) => getCalendarDateInTimezone(row.paidAt) === day)
 				.reduce((sum, row) => sum + row.totalAmount, 0);
+			const additionalIncome = additionalIncomeRows
+				.filter((row) => getCalendarDateInTimezone(row.paidAt) === day)
+				.reduce((sum, row) => sum + row.amount, 0);
 			const expenses = expenseRows
 				.filter((row) => getCalendarDateInTimezone(row.paidAt) === day)
 				.reduce((sum, row) => sum + row.amount, 0);
@@ -380,9 +409,9 @@ export function buildCashFlowSummary(
 					timeZone: 'UTC'
 				}).format(new Date(`${day}T12:00:00.000Z`)),
 				fullLabel: formatCashFlowDate(day),
-				income,
+				income: paymentIncome + additionalIncome,
 				expenses,
-				net: income - expenses
+				net: paymentIncome + additionalIncome - expenses
 			});
 		}
 	}
@@ -392,9 +421,10 @@ export function buildCashFlowSummary(
 		periodDays > 14 && activeChartPoints.length > 0 ? activeChartPoints : chartPoints;
 
 	const movements: CashFlowMovement[] = [
-		...incomeRows.map((row) => ({
-			id: `income-${row.id}`,
+		...paymentIncomeRows.map((row) => ({
+			id: `payment-${row.id}`,
 			sourceId: row.id,
+			sourceKind: 'payment' as const,
 			type: 'income' as const,
 			amount: row.totalAmount,
 			label: row.studentName,
@@ -403,9 +433,22 @@ export function buildCashFlowSummary(
 			paidAt: row.paidAt.toISOString(),
 			paidAtLabel: formatCashFlowDateTime(row.paidAt.toISOString())
 		})),
+		...additionalIncomeRows.map((row) => ({
+			id: `additional-income-${row.id}`,
+			sourceId: row.id,
+			sourceKind: 'additional_income' as const,
+			type: 'income' as const,
+			amount: row.amount,
+			label: row.description,
+			detail: ADDITIONAL_INCOME_DETAIL_LABEL,
+			paymentMethod: row.paymentMethod,
+			paidAt: row.paidAt.toISOString(),
+			paidAtLabel: formatCashFlowDateTime(row.paidAt.toISOString())
+		})),
 		...expenseRows.map((row) => ({
 			id: `expense-${row.id}`,
 			sourceId: row.id,
+			sourceKind: 'expense' as const,
 			type: 'expense' as const,
 			amount: row.amount,
 			label: row.description,
@@ -420,7 +463,7 @@ export function buildCashFlowSummary(
 		totalIncome,
 		totalExpenses,
 		netCashFlow: totalIncome - totalExpenses,
-		incomeCount: incomeRows.length,
+		incomeCount: paymentIncomeRows.length + additionalIncomeRows.length,
 		expenseCount: expenseRows.length,
 		categoryBreakdown,
 		chartPoints,
@@ -469,6 +512,70 @@ export function validateExpenseInput(data: ExpenseFormValues) {
 						paidAt: new Date(`${data.paidAt}T12:00:00.000Z`)
 					}
 				: null
+	};
+}
+
+export function validateAdditionalIncomeInput(data: AdditionalIncomeFormValues) {
+	const errors: Partial<Record<keyof AdditionalIncomeFormValues, string>> = {};
+	const amountValue = data.amount.trim();
+	const amount = Number(amountValue);
+
+	if (!amountValue) {
+		errors.amount = 'El monto es obligatorio.';
+	} else if (!Number.isInteger(amount) || amount <= 0) {
+		errors.amount = 'Ingresa un monto entero mayor a cero.';
+	}
+
+	if (!data.description.trim()) {
+		errors.description = 'La descripción es obligatoria.';
+	}
+
+	if (!PAYMENT_METHODS.includes(data.paymentMethod)) {
+		errors.paymentMethod = 'Selecciona un método de pago válido.';
+	}
+
+	if (!data.paidAt) {
+		errors.paidAt = 'La fecha del ingreso es obligatoria.';
+	}
+
+	return {
+		errors,
+		values: data,
+		parsed:
+			Object.keys(errors).length === 0
+				? {
+						amount,
+						description: data.description.trim(),
+						paymentMethod: data.paymentMethod,
+						paidAt: new Date(`${data.paidAt}T12:00:00.000Z`)
+					}
+				: null
+	};
+}
+
+export function toAdditionalIncomeFormValues(
+	additionalIncome?: {
+		amount: number;
+		description: string;
+		paymentMethod: PaymentMethod;
+		paidAt: Date;
+	} | null,
+	defaultPaidAt = getCalendarDateInAppTimezone()
+): AdditionalIncomeFormValues {
+	if (!additionalIncome) {
+		return {
+			amount: '',
+			description: '',
+			paymentMethod: 'Efectivo',
+			paidAt: defaultPaidAt
+		};
+	}
+
+	return {
+		amount: String(additionalIncome.amount),
+		description: additionalIncome.description,
+		paymentMethod: additionalIncome.paymentMethod,
+		paidAt: getCalendarDateInTimezone(additionalIncome.paidAt)
 	};
 }
 

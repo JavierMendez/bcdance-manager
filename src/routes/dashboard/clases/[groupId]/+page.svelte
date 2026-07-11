@@ -1,9 +1,10 @@
 <script lang="ts">
+	import ClassSettingsForm from '$lib/components/classes/class-settings-form.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { formatClassMeta, getPaymentStatusLabel } from '$lib/groups.js';
+	import { formatClassMeta, getPaymentStatusLabel, type ClassGroup } from '$lib/groups.js';
 	import { getPaymentStatusBadgeVariant } from '$lib/payments.js';
 	import { formatPrice } from '$lib/payment-plans.js';
 	import { formatPhone } from '$lib/phone.js';
@@ -15,10 +16,32 @@
 	import WalletIcon from '@lucide/svelte/icons/wallet';
 	import type { PageData } from './$types.js';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: import('./$types.js').ActionData } = $props();
 
-	const classGroup = $derived(data.classGroup);
-	let activeTab = $state<'resumen' | 'alumnos' | 'asistencia' | 'pagos'>('resumen');
+	let optimisticClassGroup = $state<ClassGroup | null>(null);
+	const classGroup = $derived(optimisticClassGroup ?? data.classGroup);
+	let activeTab = $state<'resumen' | 'alumnos' | 'asistencia' | 'pagos' | 'configuraciones'>(
+		'resumen'
+	);
+
+	const settingsErrors = $derived(form?.mode === 'updateClass' ? (form.errors ?? {}) : {});
+	const settingsValues = $derived(form?.mode === 'updateClass' ? (form.values ?? null) : null);
+
+	function handleClassUpdated(result: Record<string, unknown>) {
+		const updated = result.classGroup as ClassGroup;
+		optimisticClassGroup = updated;
+	}
+
+	$effect(() => {
+		if (form?.mode === 'updateClass' && form.errors) {
+			activeTab = 'configuraciones';
+		}
+	});
+
+	$effect(() => {
+		data.classGroup;
+		optimisticClassGroup = null;
+	});
 </script>
 
 <div class="flex flex-1 flex-col gap-6">
@@ -73,6 +96,13 @@
 			onclick={() => (activeTab = 'pagos')}
 		>
 			Pagos
+		</Button>
+		<Button
+			variant={activeTab === 'configuraciones' ? 'default' : 'ghost'}
+			size="sm"
+			onclick={() => (activeTab = 'configuraciones')}
+		>
+			Configuraciones
 		</Button>
 	</div>
 
@@ -171,7 +201,7 @@
 				</Button>
 			</Card.Footer>
 		</Card.Root>
-	{:else}
+	{:else if activeTab === 'pagos'}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Pagos por clase</Card.Title>
@@ -214,5 +244,13 @@
 				</Button>
 			</Card.Footer>
 		</Card.Root>
+	{:else}
+		<ClassSettingsForm
+			{classGroup}
+			programs={data.programs}
+			errors={settingsErrors}
+			values={settingsValues}
+			onSuccess={handleClassUpdated}
+		/>
 	{/if}
 </div>

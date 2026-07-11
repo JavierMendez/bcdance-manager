@@ -4,17 +4,26 @@ import {
 	buildCashFlowSummary,
 	resolveCashFlowPeriod,
 	serializeCashFlowIncome,
+	validateAdditionalIncomeInput,
 	validateExpenseInput,
+	type AdditionalIncomeFormValues,
 	type CashFlowExpenseRow,
 	type ExpenseFormValues
 } from '$lib/cash-flow.js';
 import { APP_TIMEZONE } from '$lib/locale.js';
 import { PAYMENT_METHODS } from '$lib/payments.js';
 import { getDb } from '$lib/server/db/index.js';
-import { expenses, payments, students } from '$lib/server/db/schema/index.js';
+import { additionalIncomes, expenses, payments, students } from '$lib/server/db/schema/index.js';
 import type { Actions, PageServerLoad } from './$types.js';
 
-function paidInPeriod(column: typeof payments.paidAt | typeof expenses.paidAt, from: string, to: string) {
+function paidInPeriod(
+	column:
+		| typeof payments.paidAt
+		| typeof expenses.paidAt
+		| typeof additionalIncomes.paidAt,
+	from: string,
+	to: string
+) {
 	return and(
 		sql`(${column} AT TIME ZONE ${APP_TIMEZONE})::date >= ${from}::date`,
 		sql`(${column} AT TIME ZONE ${APP_TIMEZONE})::date <= ${to}::date`
@@ -31,14 +40,22 @@ function parseExpenseForm(formData: FormData): ExpenseFormValues {
 	};
 }
 
-function getExpenseCalendarDate(paidAt: Date) {
+function parseAdditionalIncomeForm(formData: FormData): AdditionalIncomeFormValues {
+	return {
+		amount: String(formData.get('amount') ?? ''),
+		description: String(formData.get('description') ?? ''),
+		paymentMethod: String(
+			formData.get('paymentMethod') ?? ''
+		) as AdditionalIncomeFormValues['paymentMethod'],
+		paidAt: String(formData.get('paidAt') ?? '')
+	};
+}
+
+function getMovementCalendarDate(paidAt: Date) {
 	return new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIMEZONE }).format(paidAt);
 }
 
-function buildRedirectParams(
-	currentUrl: URL,
-	expenseDate?: string
-) {
+function buildRedirectParams(currentUrl: URL, movementDate?: string) {
 	const period = resolveCashFlowPeriod(currentUrl.searchParams);
 	const params = new URLSearchParams({
 		preset: period.preset,
@@ -46,10 +63,10 @@ function buildRedirectParams(
 		to: period.to
 	});
 
-	if (expenseDate && (expenseDate < period.from || expenseDate > period.to)) {
+	if (movementDate && (movementDate < period.from || movementDate > period.to)) {
 		params.set('preset', 'custom');
-		params.set('from', expenseDate);
-		params.set('to', expenseDate);
+		params.set('from', movementDate);
+		params.set('to', movementDate);
 	}
 
 	return params;
@@ -59,7 +76,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const db = getDb();
 	const period = resolveCashFlowPeriod(url.searchParams);
 
-	const [incomeRows, expenseRows] = await Promise.all([
+	const [paymentIncomeRows, additionalIncomeRows, expenseRows] = await Promise.all([
 		db
 			.select({
 				payment: payments,
@@ -71,13 +88,25 @@ export const load: PageServerLoad = async ({ url }) => {
 			.orderBy(desc(payments.paidAt)),
 		db
 			.select()
+			.from(additionalIncomes)
+			.where(paidInPeriod(additionalIncomes.paidAt, period.from, period.to))
+			.orderBy(desc(additionalIncomes.paidAt)),
+		db
+			.select()
 			.from(expenses)
 			.where(paidInPeriod(expenses.paidAt, period.from, period.to))
 			.orderBy(desc(expenses.paidAt))
 	]);
 
 	const summary = buildCashFlowSummary(
-		incomeRows.map((row) => serializeCashFlowIncome(row.payment, row.studentName)),
+		paymentIncomeRows.map((row) => serializeCashFlowIncome(row.payment, row.studentName)),
+		additionalIncomeRows.map((row) => ({
+			id: row.id,
+			amount: row.amount,
+			description: row.description,
+			paymentMethod: row.paymentMethod as CashFlowExpenseRow['paymentMethod'],
+			paidAt: row.paidAt
+		})),
 		expenseRows.map((row) => ({
 			id: row.id,
 			amount: row.amount,
@@ -120,8 +149,35 @@ export const actions: Actions = {
 			paidAt: parsed.paidAt
 		});
 
-		const params = buildRedirectParams(url, getExpenseCalendarDate(parsed.paidAt));
+		const params = buildRedirectParams(url, getMovementCalendarDate(parsed.paidAt));
 		params.set('saved', '1');
+		redirect(303, `/dashboard/flujo-de-efectivo?${params.toString()}`);
+	},
+
+	createAdditionalIncome: async ({ request, url }) => {
+		const formData = await request.formData();
+		const incomeData = parseAdditionalIncomeForm(formData);
+		const { errors, values, parsed } = validateAdditionalIncomeInput(incomeData);
+
+		if (!parsed) {
+			return fail(400, {
+				mode: 'createAdditionalIncome' as const,
+				errors,
+				values
+			});
+		}
+
+		const db = getDb();
+
+		await db.insert(additionalIncomes).values({
+			amount: parsed.amount,
+			description: parsed.description,
+			paymentMethod: parsed.paymentMethod,
+			paidAt: parsed.paidAt
+		});
+
+		const params = buildRedirectParams(url, getMovementCalendarDate(parsed.paidAt));
+		params.set('incomeSaved', '1');
 		redirect(303, `/dashboard/flujo-de-efectivo?${params.toString()}`);
 	},
 
@@ -138,6 +194,22 @@ export const actions: Actions = {
 
 		const params = buildRedirectParams(url);
 		params.set('deleted', '1');
+		redirect(303, `/dashboard/flujo-de-efectivo?${params.toString()}`);
+	},
+
+	deleteAdditionalIncome: async ({ request, url }) => {
+		const formData = await request.formData();
+		const additionalIncomeId = Number(formData.get('additionalIncomeId'));
+
+		if (!additionalIncomeId) {
+			return fail(400, { message: 'No se pudo identificar el ingreso adicional.' });
+		}
+
+		const db = getDb();
+		await db.delete(additionalIncomes).where(eq(additionalIncomes.id, additionalIncomeId));
+
+		const params = buildRedirectParams(url);
+		params.set('incomeDeleted', '1');
 		redirect(303, `/dashboard/flujo-de-efectivo?${params.toString()}`);
 	}
 };
