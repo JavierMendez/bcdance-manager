@@ -32,6 +32,15 @@ export type AttendanceMember = {
 	currentStatus: AttendanceStatus | null;
 };
 
+export type EligibleFullPassStudent = {
+	studentId: number;
+	fullName: string;
+	phone: string | null;
+	entitlementId: number;
+	hoursRemaining: number;
+	planName: string;
+};
+
 type EntitlementSnapshot = {
 	id: number;
 	entitlementType: string;
@@ -43,6 +52,7 @@ type EntitlementSnapshot = {
 	student: {
 		id: number;
 		fullName: string;
+		phone?: string | null;
 		active: boolean;
 	};
 };
@@ -105,6 +115,82 @@ export function parseAttendanceEntries(raw: string): {
 	}
 }
 
+export function isMonthlyEntitlementVigente(endsAt: Date | null, now = new Date()) {
+	return !!endsAt && endsAt > now;
+}
+
+export function toFullPassAttendanceMember(
+	student: EligibleFullPassStudent,
+	currentStatus: AttendanceStatus | null = null
+): AttendanceMember {
+	return {
+		studentId: student.studentId,
+		fullName: student.fullName,
+		modalityLabel: 'Full pass',
+		planName: student.planName,
+		coverageLabel: formatFullPassCoverage(student.hoursRemaining),
+		entitlementId: student.entitlementId,
+		entitlementType: 'full_pass',
+		hoursRemaining: student.hoursRemaining,
+		classesRemaining: null,
+		currentStatus
+	};
+}
+
+export function buildEligibleFullPassStudents(
+	groupId: number,
+	entitlements: EntitlementSnapshot[],
+	excludedStudentIds: Set<number>,
+	now = new Date()
+): EligibleFullPassStudent[] {
+	const monthlyStudentIds = new Set<number>();
+
+	for (const row of entitlements) {
+		if (
+			row.entitlementType === 'monthly_plan' &&
+			row.groupId === groupId &&
+			isMonthlyEntitlementVigente(row.endsAt, now)
+		) {
+			monthlyStudentIds.add(row.student.id);
+		}
+	}
+
+	const eligible: EligibleFullPassStudent[] = [];
+
+	for (const row of entitlements) {
+		if (row.entitlementType !== 'full_pass') {
+			continue;
+		}
+
+		if (!row.student.active) {
+			continue;
+		}
+
+		if ((row.hoursRemaining ?? 0) <= 0) {
+			continue;
+		}
+
+		if (monthlyStudentIds.has(row.student.id)) {
+			continue;
+		}
+
+		if (excludedStudentIds.has(row.student.id)) {
+			continue;
+		}
+
+		eligible.push({
+			studentId: row.student.id,
+			fullName: row.student.fullName,
+			phone: row.student.phone ?? null,
+			entitlementId: row.id,
+			hoursRemaining: row.hoursRemaining ?? 0,
+			planName: row.planName
+		});
+	}
+
+	return eligible.sort((a, b) => a.fullName.localeCompare(b.fullName, 'es'));
+}
+
 export function resolveAttendanceEntitlement(
 	groupId: number,
 	monthly: EntitlementSnapshot | null,
@@ -141,7 +227,11 @@ export function buildAttendanceMembers(
 	const fullPassByStudent = new Map<number, EntitlementSnapshot>();
 
 	for (const row of entitlements) {
-		if (row.entitlementType === 'monthly_plan' && row.groupId === groupId) {
+		if (
+			row.entitlementType === 'monthly_plan' &&
+			row.groupId === groupId &&
+			isMonthlyEntitlementVigente(row.endsAt, _now)
+		) {
 			monthlyByStudent.set(row.student.id, row);
 		}
 
@@ -153,7 +243,7 @@ export function buildAttendanceMembers(
 			dropInByStudent.set(row.student.id, row);
 		}
 
-		if (row.entitlementType === 'full_pass' && (row.hoursRemaining ?? 0) > 0) {
+		if (row.entitlementType === 'full_pass') {
 			fullPassByStudent.set(row.student.id, row);
 		}
 	}
@@ -161,7 +251,7 @@ export function buildAttendanceMembers(
 	const studentIds = new Set<number>([
 		...monthlyByStudent.keys(),
 		...dropInByStudent.keys(),
-		...fullPassByStudent.keys()
+		...fullPassByStudent.keys().filter((studentId) => attendanceByStudent.has(studentId))
 	]);
 
 	const members: AttendanceMember[] = [];

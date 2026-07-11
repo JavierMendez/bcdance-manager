@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { and, eq, sql } from 'drizzle-orm';
 import {
 	buildAttendanceMembers,
+	buildEligibleFullPassStudents,
 	buildSessionDropInPayments,
 	formatSessionDate,
 	getTodaySessionDate,
@@ -126,6 +127,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				name: `${entry.name} — ${entry.schedule}`
 			})),
 			eligibleStudents: [],
+			eligibleFullPassStudents: [],
 			dropInPlans: [],
 			sessionDropInPayments: [],
 			paymentMethods: PAYMENT_METHODS
@@ -144,6 +146,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				name: `${entry.name} — ${entry.schedule}`
 			})),
 			eligibleStudents: [],
+			eligibleFullPassStudents: [],
 			dropInPlans: [],
 			sessionDropInPayments: [],
 			paymentMethods: PAYMENT_METHODS
@@ -164,6 +167,7 @@ export const load: PageServerLoad = async ({ url }) => {
 					student: {
 						id: students.id,
 						fullName: students.fullName,
+						phone: students.phone,
 						active: students.active
 					}
 				})
@@ -230,6 +234,12 @@ export const load: PageServerLoad = async ({ url }) => {
 		(student) => !memberStudentIds.has(student.id) && !attendedStudentIds.has(student.id)
 	) as WizardStudent[];
 
+	const eligibleFullPassStudents = buildEligibleFullPassStudents(
+		groupId,
+		entitlementRows,
+		memberStudentIds
+	);
+
 	const dropInPlans = serializeDropInPlans(planRows).filter((plan) => plan.planType === 'drop_in');
 	const sessionDropInPayments = buildSessionDropInPayments(sessionPaymentRows, attendanceByStudent);
 
@@ -248,6 +258,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			name: `${entry.name} — ${entry.schedule}`
 		})),
 		eligibleStudents,
+		eligibleFullPassStudents,
 		dropInPlans,
 		sessionDropInPayments,
 		paymentMethods: PAYMENT_METHODS
@@ -462,6 +473,7 @@ export const actions: Actions = {
 					student: {
 						id: students.id,
 						fullName: students.fullName,
+						phone: students.phone,
 						active: students.active
 					}
 				})

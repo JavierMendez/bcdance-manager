@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DropInQuickRegisterDialog from '$lib/components/attendance/drop-in-quick-register-dialog.svelte';
+	import FullPassStudentPicker from '$lib/components/attendance/full-pass-student-picker.svelte';
 	import AttendanceStatusToggle from '$lib/components/attendance/attendance-status-toggle.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -13,7 +14,10 @@
 		formatSessionDate,
 		getAttendanceStatusBadgeVariant,
 		getTodaySessionDate,
-		type AttendanceStatus
+		toFullPassAttendanceMember,
+		type AttendanceMember,
+		type AttendanceStatus,
+		type EligibleFullPassStudent
 	} from '$lib/attendance.js';
 	import { formatCourseDays } from '$lib/courses.js';
 	import { formatPrice } from '$lib/payment-plans.js';
@@ -23,6 +27,7 @@
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
+	import XIcon from '@lucide/svelte/icons/x';
 	import type { PageData } from './$types.js';
 
 	let {
@@ -41,6 +46,8 @@
 	let showDropInNotice = $state(false);
 	let showDropInAttendedNotice = $state(false);
 	let dropInDialogOpen = $state(false);
+	let addedFullPassMembers = $state<AttendanceMember[]>([]);
+	let clientAddedStudentIds = $state<Set<number>>(new Set());
 
 	const dropInErrors = $derived(
 		form?.mode === 'registerDropIn' ? (form.errors ?? {}) : {}
@@ -58,6 +65,8 @@
 		showSavedNotice = false;
 		showDropInNotice = false;
 		showDropInAttendedNotice = false;
+		addedFullPassMembers = [];
+		clientAddedStudentIds = new Set();
 
 		const nextStatuses: Record<number, AttendanceStatus | ''> = {};
 		for (const member of data.members) {
@@ -90,9 +99,22 @@
 		}
 	});
 
+	const displayMembers = $derived.by(() => {
+		const memberIds = new Set(data.members.map((member) => member.studentId));
+		const extraMembers = addedFullPassMembers.filter((member) => !memberIds.has(member.studentId));
+
+		return [...data.members, ...extraMembers].sort((a, b) =>
+			a.fullName.localeCompare(b.fullName, 'es')
+		);
+	});
+
+	const excludedFullPassStudentIds = $derived(
+		new Set(displayMembers.map((member) => member.studentId))
+	);
+
 	const entriesPayload = $derived(
 		JSON.stringify(
-			data.members
+			displayMembers
 				.filter((member) => statuses[member.studentId])
 				.map((member) => ({
 					studentId: member.studentId,
@@ -103,16 +125,41 @@
 	);
 
 	const allMarked = $derived(
-		data.members.length > 0 &&
-			data.members.every((member) => statuses[member.studentId] !== '')
+		displayMembers.length > 0 &&
+			displayMembers.every((member) => statuses[member.studentId] !== '')
 	);
 
 	const dropInMembers = $derived(
-		data.members.filter((member) => member.entitlementType === 'drop_in')
+		displayMembers.filter((member) => member.entitlementType === 'drop_in')
 	);
 	const enrolledMembers = $derived(
-		data.members.filter((member) => member.entitlementType !== 'drop_in')
+		displayMembers.filter((member) => member.entitlementType !== 'drop_in')
 	);
+
+	function addFullPassStudent(student: EligibleFullPassStudent) {
+		const member = toFullPassAttendanceMember(student);
+		addedFullPassMembers = [...addedFullPassMembers, member];
+		clientAddedStudentIds = new Set([...clientAddedStudentIds, student.studentId]);
+		statuses = {
+			...statuses,
+			[student.studentId]: ''
+		};
+	}
+
+	function removeAddedFullPassStudent(studentId: number) {
+		addedFullPassMembers = addedFullPassMembers.filter((member) => member.studentId !== studentId);
+		const nextClientAdded = new Set(clientAddedStudentIds);
+		nextClientAdded.delete(studentId);
+		clientAddedStudentIds = nextClientAdded;
+
+		const nextStatuses = { ...statuses };
+		delete nextStatuses[studentId];
+		statuses = nextStatuses;
+	}
+
+	function isClientAddedFullPass(studentId: number) {
+		return clientAddedStudentIds.has(studentId);
+	}
 
 	function applyFilters() {
 		if (!selectedCourseId) {
@@ -133,8 +180,10 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-2xl font-bold tracking-tight">Registrar asistencia</h2>
 			<p class="text-muted-foreground text-sm">
-				Marca asistencia o falta por alumno. El full pass descuenta {FULL_PASS_HOURS_PER_CLASS} h
-				por clase asistida. Usa el registro rápido para alumnos que pagan por clase sin inscripción.
+				Marca asistencia o falta por alumno. La lista inicial muestra inscripciones mensuales
+				vigentes. Agrega alumnos full pass bajo demanda. El full pass descuenta
+				{FULL_PASS_HOURS_PER_CLASS} h por clase asistida. Usa el registro rápido para alumnos que
+				pagan por clase sin inscripción.
 			</p>
 		</div>
 		<Button variant="outline" href="/dashboard/clases">
@@ -211,22 +260,34 @@
 						{data.sessionDateLabel} · {data.course.schedule} · {formatCourseDays(data.course.days)}
 					</Card.Description>
 				</div>
-				<Button variant="secondary" onclick={() => (dropInDialogOpen = true)}>
-					<UserPlusIcon data-icon="inline-start" />
-					Pago por clase
-				</Button>
+				<div class="flex flex-wrap items-center gap-2">
+					<FullPassStudentPicker
+						students={data.eligibleFullPassStudents}
+						excludedStudentIds={excludedFullPassStudentIds}
+						onSelect={addFullPassStudent}
+					/>
+					<Button variant="secondary" onclick={() => (dropInDialogOpen = true)}>
+						<UserPlusIcon data-icon="inline-start" />
+						Pago por clase
+					</Button>
+				</div>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-6">
-				{#if data.members.length === 0 && data.sessionDropInPayments.length === 0}
+				{#if displayMembers.length === 0 && data.sessionDropInPayments.length === 0}
 					<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
-						No hay alumnos inscritos con vigencia activa en esta clase.
+						No hay alumnos con inscripción mensual vigente en esta clase.
+						{#if data.eligibleFullPassStudents.length > 0}
+							<span class="mt-2 block">
+								Usa "Agregar full pass" para incluir alumnos con full pass.
+							</span>
+						{/if}
 						{#if data.eligibleStudents.length > 0 && data.dropInPlans.length > 0}
 							<span class="mt-2 block">
 								Usa "Pago por clase" para registrar un alumno que paga sin inscripción.
 							</span>
 						{/if}
 					</div>
-				{:else if data.members.length > 0}
+				{:else if displayMembers.length > 0}
 					<form
 							method="POST"
 							action="?/save"
@@ -267,16 +328,29 @@
 														</Table.Cell>
 														<Table.Cell>{member.coverageLabel}</Table.Cell>
 														<Table.Cell>
-															<AttendanceStatusToggle
-																value={statuses[member.studentId]}
-																savedStatus={member.currentStatus}
-																onValueChange={(next) => {
-																	statuses = {
-																		...statuses,
-																		[member.studentId]: next
-																	};
-																}}
-															/>
+															<div class="flex items-center gap-2">
+																<AttendanceStatusToggle
+																	value={statuses[member.studentId]}
+																	savedStatus={member.currentStatus}
+																	onValueChange={(next) => {
+																		statuses = {
+																			...statuses,
+																			[member.studentId]: next
+																		};
+																	}}
+																/>
+																{#if isClientAddedFullPass(member.studentId)}
+																	<Button
+																		type="button"
+																		variant="ghost"
+																		size="icon-sm"
+																		aria-label={`Quitar a ${member.fullName}`}
+																		onclick={() => removeAddedFullPassStudent(member.studentId)}
+																	>
+																		<XIcon />
+																	</Button>
+																{/if}
+															</div>
 														</Table.Cell>
 													</Table.Row>
 												{/each}
@@ -311,16 +385,29 @@
 														</Table.Cell>
 														<Table.Cell>{member.coverageLabel}</Table.Cell>
 														<Table.Cell>
-															<AttendanceStatusToggle
-																value={statuses[member.studentId]}
-																savedStatus={member.currentStatus}
-																onValueChange={(next) => {
-																	statuses = {
-																		...statuses,
-																		[member.studentId]: next
-																	};
-																}}
-															/>
+															<div class="flex items-center gap-2">
+																<AttendanceStatusToggle
+																	value={statuses[member.studentId]}
+																	savedStatus={member.currentStatus}
+																	onValueChange={(next) => {
+																		statuses = {
+																			...statuses,
+																			[member.studentId]: next
+																		};
+																	}}
+																/>
+																{#if isClientAddedFullPass(member.studentId)}
+																	<Button
+																		type="button"
+																		variant="ghost"
+																		size="icon-sm"
+																		aria-label={`Quitar a ${member.fullName}`}
+																		onclick={() => removeAddedFullPassStudent(member.studentId)}
+																	>
+																		<XIcon />
+																	</Button>
+																{/if}
+															</div>
 														</Table.Cell>
 													</Table.Row>
 												{/each}
