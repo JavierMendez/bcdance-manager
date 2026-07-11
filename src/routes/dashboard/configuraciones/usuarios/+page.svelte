@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client.js';
+	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -34,6 +35,8 @@
 	let editingUser = $state<AppUser | null>(null);
 	let submitting = $state(false);
 	let actionError = $state('');
+	let deleteConfirmOpen = $state(false);
+	let pendingDeleteUser = $state<AppUser | null>(null);
 
 	let name = $state('');
 	let email = $state('');
@@ -175,20 +178,30 @@
 		await loadUsers();
 	}
 
-	async function handleRemoveUser(user: AppUser) {
-		if (!confirm(`¿Eliminar al usuario ${user.name}? Esta acción no se puede deshacer.`)) {
-			return;
-		}
+	function requestRemoveUser(user: AppUser) {
+		pendingDeleteUser = user;
+		deleteConfirmOpen = true;
+	}
+
+	async function confirmRemoveUser() {
+		if (!pendingDeleteUser) return false;
 
 		actionError = '';
-		const { error } = await authClient.admin.removeUser({ userId: user.id });
+		const { error } = await authClient.admin.removeUser({ userId: pendingDeleteUser.id });
 
 		if (error) {
 			actionError = error.message ?? 'No se pudo eliminar el usuario.';
-			return;
+			return false;
 		}
 
+		pendingDeleteUser = null;
 		await loadUsers();
+	}
+
+	function handleDeleteOpenChange(open: boolean) {
+		if (!open) {
+			pendingDeleteUser = null;
+		}
 	}
 
 	function formatRole(userRole?: string | null) {
@@ -289,7 +302,7 @@
 										<BanIcon data-icon="inline-start" />
 										{user.banned ? 'Reactivar' : 'Suspender'}
 									</Button>
-									<Button variant="destructive" size="sm" onclick={() => handleRemoveUser(user)}>
+									<Button variant="destructive" size="sm" onclick={() => requestRemoveUser(user)}>
 										<Trash2Icon data-icon="inline-start" />
 										Eliminar
 									</Button>
@@ -404,3 +417,10 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<ConfirmDialog
+	bind:open={deleteConfirmOpen}
+	title={pendingDeleteUser ? `¿Eliminar al usuario ${pendingDeleteUser.name}?` : '¿Eliminar usuario?'}
+	onConfirm={confirmRemoveUser}
+	onOpenChange={handleDeleteOpenChange}
+/>

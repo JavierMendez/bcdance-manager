@@ -1,4 +1,10 @@
-import { formatDropInCoverage, formatFullPassCoverage, isMonthlyEntitlementVigente } from '$lib/groups.js';
+import { formatCourseDate } from '$lib/courses.js';
+import {
+	formatDropInCoverage,
+	formatFullPassCoverage,
+	isMonthlyEntitlementVigenteForSession,
+	resolveEntitlementStatus
+} from '$lib/groups.js';
 import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import { DROP_IN_GUEST_LABEL } from '$lib/payments.js';
 
@@ -30,6 +36,15 @@ export type AttendanceMember = {
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
 	currentStatus: AttendanceStatus | null;
+	canRegisterAttendance: boolean;
+};
+
+export type EntitlementForAttendance = {
+	entitlementType: string;
+	startsAt: Date;
+	endsAt: Date | null;
+	hoursRemaining: number | null;
+	classesRemaining: number | null;
 };
 
 export type EligibleFullPassStudent = {
@@ -45,6 +60,7 @@ type EntitlementSnapshot = {
 	id: number;
 	entitlementType: string;
 	groupId: number | null;
+	startsAt: Date;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
@@ -59,6 +75,83 @@ type EntitlementSnapshot = {
 
 export function getTodaySessionDate(now = new Date()) {
 	return getCalendarDateInAppTimezone(now);
+}
+
+export function isClassAttendanceEditable(endDate: string, now = new Date()) {
+	return getCalendarDateInAppTimezone(now) <= endDate;
+}
+
+export function isSessionDateInClassRange(
+	sessionDate: string,
+	startDate: string,
+	endDate: string
+) {
+	return startDate <= sessionDate && sessionDate <= endDate;
+}
+
+export function validateClassAttendanceSession(
+	sessionDate: string,
+	startDate: string,
+	endDate: string,
+	now = new Date()
+): string | null {
+	if (!isClassAttendanceEditable(endDate, now)) {
+		return `Esta clase finalizó el ${formatCourseDate(endDate)}. Ya no se puede registrar ni modificar asistencia.`;
+	}
+
+	if (!isSessionDateInClassRange(sessionDate, startDate, endDate)) {
+		return `La fecha de sesión debe estar dentro del periodo de la clase (${formatCourseDate(startDate)} – ${formatCourseDate(endDate)}).`;
+	}
+
+	return null;
+}
+
+export function isEntitlementVigenteForSession(
+	entitlement: EntitlementForAttendance,
+	sessionDate: string,
+	now = new Date()
+) {
+	if (entitlement.entitlementType === 'monthly_plan') {
+		return isMonthlyEntitlementVigenteForSession(
+			entitlement.endsAt,
+			entitlement.startsAt,
+			sessionDate
+		);
+	}
+
+	return (
+		resolveEntitlementStatus(
+			entitlement.entitlementType,
+			entitlement.endsAt,
+			entitlement.hoursRemaining,
+			entitlement.classesRemaining,
+			now
+		) !== 'vencido'
+	);
+}
+
+export function validateEntitlementForAttendanceSave(
+	entitlement: EntitlementForAttendance,
+	sessionDate: string,
+	status: AttendanceStatus,
+	existingStatus?: AttendanceStatus | null,
+	now = new Date()
+): string | null {
+	const markingAttended = status === 'attended';
+	const wasAttended = existingStatus === 'attended';
+	const isNewEntry = !existingStatus;
+
+	if (markingAttended && !wasAttended) {
+		if (!isEntitlementVigenteForSession(entitlement, sessionDate, now)) {
+			return 'El pago del alumno ya no está vigente. No se puede registrar asistencia.';
+		}
+	}
+
+	if (isNewEntry && !isEntitlementVigenteForSession(entitlement, sessionDate, now)) {
+		return 'El pago del alumno ya no está vigente. No se puede registrar asistencia en esta sesión.';
+	}
+
+	return null;
 }
 
 export function formatSessionDate(dateValue: string) {
@@ -129,7 +222,8 @@ export function toFullPassAttendanceMember(
 		entitlementType: 'full_pass',
 		hoursRemaining: student.hoursRemaining,
 		classesRemaining: null,
-		currentStatus
+		currentStatus,
+		canRegisterAttendance: true
 	};
 }
 
@@ -137,6 +231,7 @@ export function buildEligibleFullPassStudents(
 	groupId: number,
 	entitlements: EntitlementSnapshot[],
 	excludedStudentIds: Set<number>,
+	sessionDate: string,
 	now = new Date()
 ): EligibleFullPassStudent[] {
 	const monthlyStudentIds = new Set<number>();
@@ -145,7 +240,7 @@ export function buildEligibleFullPassStudents(
 		if (
 			row.entitlementType === 'monthly_plan' &&
 			row.groupId === groupId &&
-			isMonthlyEntitlementVigente(row.endsAt, now)
+			isMonthlyEntitlementVigenteForSession(row.endsAt, row.startsAt, sessionDate)
 		) {
 			monthlyStudentIds.add(row.student.id);
 		}
@@ -205,7 +300,7 @@ export function resolveAttendanceEntitlement(
 		return dropIn;
 	}
 
-	if (fullPass && (fullPass.hoursRemaining ?? 0) > 0) {
+	if (fullPass && ((fullPass.hoursRemaining ?? 0) > 0 || hasSessionAttendance)) {
 		return fullPass;
 	}
 
@@ -216,27 +311,34 @@ export function buildAttendanceMembers(
 	groupId: number,
 	entitlements: EntitlementSnapshot[],
 	attendanceByStudent: Map<number, AttendanceStatus>,
-	_now = new Date()
+	sessionDate: string,
+	now = new Date()
 ): AttendanceMember[] {
 	const monthlyByStudent = new Map<number, EntitlementSnapshot>();
 	const dropInByStudent = new Map<number, EntitlementSnapshot>();
 	const fullPassByStudent = new Map<number, EntitlementSnapshot>();
 
 	for (const row of entitlements) {
-		if (
-			row.entitlementType === 'monthly_plan' &&
-			row.groupId === groupId &&
-			isMonthlyEntitlementVigente(row.endsAt, _now)
-		) {
-			monthlyByStudent.set(row.student.id, row);
+		if (row.entitlementType === 'monthly_plan' && row.groupId === groupId) {
+			const hasSessionAttendance = attendanceByStudent.has(row.student.id);
+
+			if (
+				isMonthlyEntitlementVigenteForSession(row.endsAt, row.startsAt, sessionDate) ||
+				hasSessionAttendance
+			) {
+				monthlyByStudent.set(row.student.id, row);
+			}
 		}
 
-		if (
-			row.entitlementType === 'drop_in' &&
-			row.groupId === groupId &&
-			((row.classesRemaining ?? 0) > 0 || attendanceByStudent.has(row.student.id))
-		) {
-			dropInByStudent.set(row.student.id, row);
+		if (row.entitlementType === 'drop_in' && row.groupId === groupId) {
+			const hasSessionAttendance = attendanceByStudent.has(row.student.id);
+
+			if (
+				isEntitlementVigenteForSession(row, sessionDate, now) ||
+				hasSessionAttendance
+			) {
+				dropInByStudent.set(row.student.id, row);
+			}
 		}
 
 		if (row.entitlementType === 'full_pass') {
@@ -289,7 +391,8 @@ export function buildAttendanceMembers(
 			entitlementType: isMonthly ? 'monthly_plan' : isDropIn ? 'drop_in' : 'full_pass',
 			hoursRemaining: entitlement.hoursRemaining,
 			classesRemaining: entitlement.classesRemaining,
-			currentStatus: attendanceByStudent.get(studentId) ?? null
+			currentStatus: attendanceByStudent.get(studentId) ?? null,
+			canRegisterAttendance: isEntitlementVigenteForSession(entitlement, sessionDate, now)
 		});
 	}
 

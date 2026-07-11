@@ -7,6 +7,8 @@ import {
 	formatSessionDate,
 	getTodaySessionDate,
 	parseAttendanceEntries,
+	validateClassAttendanceSession,
+	validateEntitlementForAttendanceSave,
 	DROP_IN_CLASSES_PER_SESSION,
 	FULL_PASS_HOURS_PER_CLASS,
 	type AttendanceStatus
@@ -96,7 +98,9 @@ async function loadGroupContext(db: ReturnType<typeof getDb>, groupId: number) {
 			id: groups.id,
 			name: programs.name,
 			schedule: groups.schedule,
-			days: groups.days
+			days: groups.days,
+			startDate: groups.startDate,
+			endDate: groups.endDate
 		})
 		.from(groups)
 		.innerJoin(programs, eq(groups.programId, programs.id))
@@ -121,6 +125,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			course: null,
 			sessionDate,
+			attendanceEditable: false,
+			attendanceValidationError: null,
 			members: [],
 			courses: classOptions.map((entry) => ({
 				id: entry.id,
@@ -140,6 +146,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		return {
 			course: null,
 			sessionDate,
+			attendanceEditable: false,
+			attendanceValidationError: null,
 			members: [],
 			courses: classOptions.map((entry) => ({
 				id: entry.id,
@@ -160,6 +168,7 @@ export const load: PageServerLoad = async ({ url }) => {
 					id: studentEntitlements.id,
 					entitlementType: studentEntitlements.entitlementType,
 					groupId: studentEntitlements.groupId,
+					startsAt: studentEntitlements.startsAt,
 					endsAt: studentEntitlements.endsAt,
 					hoursRemaining: studentEntitlements.hoursRemaining,
 					classesRemaining: studentEntitlements.classesRemaining,
@@ -224,7 +233,12 @@ export const load: PageServerLoad = async ({ url }) => {
 		attendanceByStudent.set(row.studentId, row.status as AttendanceStatus);
 	}
 
-	const members = buildAttendanceMembers(groupId, entitlementRows, attendanceByStudent);
+	const members = buildAttendanceMembers(
+		groupId,
+		entitlementRows,
+		attendanceByStudent,
+		sessionDate
+	);
 	const memberStudentIds = new Set(members.map((member) => member.studentId));
 	const attendedStudentIds = new Set(
 		attendanceRows.filter((row) => row.status === 'attended').map((row) => row.studentId)
@@ -237,20 +251,31 @@ export const load: PageServerLoad = async ({ url }) => {
 	const eligibleFullPassStudents = buildEligibleFullPassStudents(
 		groupId,
 		entitlementRows,
-		memberStudentIds
+		memberStudentIds,
+		sessionDate
 	);
 
 	const dropInPlans = serializeDropInPlans(planRows).filter((plan) => plan.planType === 'drop_in');
 	const sessionDropInPayments = buildSessionDropInPayments(sessionPaymentRows, attendanceByStudent);
+	const attendanceValidationError = validateClassAttendanceSession(
+		sessionDate,
+		classGroup.startDate,
+		classGroup.endDate
+	);
+	const attendanceEditable = attendanceValidationError === null;
 
 	return {
 		course: {
 			id: classGroup.id,
 			name: classGroup.name,
 			schedule: classGroup.schedule,
-			days: classGroup.days as Weekday[]
+			days: classGroup.days as Weekday[],
+			startDate: classGroup.startDate,
+			endDate: classGroup.endDate
 		},
 		sessionDate,
+		attendanceEditable,
+		attendanceValidationError,
 		sessionDateLabel: formatSessionDate(sessionDate),
 		members,
 		courses: classOptions.map((entry) => ({
@@ -291,6 +316,16 @@ export const actions: Actions = {
 
 		if (!classGroup) {
 			return fail(404, { message: 'Clase no encontrada.' });
+		}
+
+		const attendanceValidationError = validateClassAttendanceSession(
+			sessionDate,
+			classGroup.startDate,
+			classGroup.endDate
+		);
+
+		if (attendanceValidationError) {
+			return fail(400, { message: attendanceValidationError });
 		}
 
 		try {
@@ -335,6 +370,17 @@ export const actions: Actions = {
 							)
 						)
 						.limit(1);
+
+					const entitlementValidationError = validateEntitlementForAttendanceSave(
+						entitlement,
+						sessionDate,
+						entry.status,
+						existing?.status as AttendanceStatus | undefined
+					);
+
+					if (entitlementValidationError) {
+						throw new Error(entitlementValidationError);
+					}
 
 					let hoursDeducted = existing?.hoursDeducted ?? 0;
 					let classesDeducted = existing?.classesDeducted ?? 0;
@@ -466,6 +512,7 @@ export const actions: Actions = {
 					id: studentEntitlements.id,
 					entitlementType: studentEntitlements.entitlementType,
 					groupId: studentEntitlements.groupId,
+					startsAt: studentEntitlements.startsAt,
 					endsAt: studentEntitlements.endsAt,
 					hoursRemaining: studentEntitlements.hoursRemaining,
 					classesRemaining: studentEntitlements.classesRemaining,
@@ -500,12 +547,31 @@ export const actions: Actions = {
 			});
 		}
 
+		const attendanceValidationError = validateClassAttendanceSession(
+			sessionDate,
+			classGroup.startDate,
+			classGroup.endDate
+		);
+
+		if (attendanceValidationError) {
+			return fail(400, {
+				mode: 'registerDropIn' as const,
+				message: attendanceValidationError,
+				values: quickDropInData
+			});
+		}
+
 		const attendanceByStudent = new Map<number, AttendanceStatus>();
 		for (const row of attendanceRows) {
 			attendanceByStudent.set(row.studentId, row.status as AttendanceStatus);
 		}
 
-		const members = buildAttendanceMembers(groupId, entitlementRows, attendanceByStudent);
+		const members = buildAttendanceMembers(
+		groupId,
+		entitlementRows,
+		attendanceByStudent,
+		sessionDate
+	);
 		const memberStudentIds = new Set(members.map((member) => member.studentId));
 		const attendedStudentIds = new Set(
 			attendanceRows.filter((row) => row.status === 'attended').map((row) => row.studentId)

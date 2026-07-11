@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ExpenseDialog from '$lib/components/cash-flow/expense-dialog.svelte';
 	import AdditionalIncomeDialog from '$lib/components/cash-flow/additional-income-dialog.svelte';
+	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -67,6 +68,13 @@
 		income: { label: 'Ingresos', color: 'var(--chart-1)' },
 		expenses: { label: 'Egresos', color: 'var(--chart-2)' }
 	} satisfies Chart.ChartConfig;
+
+	function submitFormById(formId: string) {
+		const form = document.getElementById(formId);
+		if (form instanceof HTMLFormElement) {
+			form.requestSubmit();
+		}
+	}
 
 	$effect.pre(() => {
 		selectedPreset = data.period.preset;
@@ -454,6 +462,7 @@
 									<Table.Cell>
 										{#if movement.sourceKind === 'expense'}
 											<form
+												id="delete-expense-{movement.sourceId}"
 												method="POST"
 												action="?/deleteExpense"
 												use:enhance={() => {
@@ -463,17 +472,27 @@
 												}}
 											>
 												<input type="hidden" name="expenseId" value={movement.sourceId} />
-												<Button
-													type="submit"
-													variant="ghost"
-													size="icon-sm"
-													aria-label="Eliminar egreso"
+												<ConfirmDialog
+													title="¿Eliminar egreso?"
+													description="Se eliminará este egreso del registro. Esta acción no se puede deshacer."
+													onConfirm={() => submitFormById(`delete-expense-${movement.sourceId}`)}
 												>
-													<Trash2Icon />
-												</Button>
+													{#snippet children({ props })}
+														<Button
+															{...props}
+															type="button"
+															variant="ghost"
+															size="icon-sm"
+															aria-label="Eliminar egreso"
+														>
+															<Trash2Icon />
+														</Button>
+													{/snippet}
+												</ConfirmDialog>
 											</form>
 										{:else if movement.sourceKind === 'additional_income'}
 											<form
+												id="delete-income-{movement.sourceId}"
 												method="POST"
 												action="?/deleteAdditionalIncome"
 												use:enhance={() => {
@@ -487,14 +506,23 @@
 													name="additionalIncomeId"
 													value={movement.sourceId}
 												/>
-												<Button
-													type="submit"
-													variant="ghost"
-													size="icon-sm"
-													aria-label="Eliminar ingreso adicional"
+												<ConfirmDialog
+													title="¿Eliminar ingreso adicional?"
+													description="Se eliminará este ingreso del registro. Esta acción no se puede deshacer."
+													onConfirm={() => submitFormById(`delete-income-${movement.sourceId}`)}
 												>
-													<Trash2Icon />
-												</Button>
+													{#snippet children({ props })}
+														<Button
+															{...props}
+															type="button"
+															variant="ghost"
+															size="icon-sm"
+															aria-label="Eliminar ingreso adicional"
+														>
+															<Trash2Icon />
+														</Button>
+													{/snippet}
+												</ConfirmDialog>
 											</form>
 										{/if}
 									</Table.Cell>

@@ -9,10 +9,12 @@
 	let {
 		value,
 		savedStatus = null,
+		disabled = false,
 		onValueChange
 	}: {
 		value: AttendanceStatus | '';
 		savedStatus?: AttendanceStatus | null;
+		disabled?: boolean;
 		onValueChange: (value: AttendanceStatus | '') => void;
 	} = $props();
 
@@ -27,6 +29,7 @@
 		value={value || undefined}
 		onValueChange={(next) => onValueChange((next as AttendanceStatus) ?? '')}
 		class="bg-muted/60 border-border inline-flex w-full rounded-lg border p-1"
+		{disabled}
 	>
 		<ToggleGroup.Item
 			value="attended"

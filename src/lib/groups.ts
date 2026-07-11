@@ -1,5 +1,5 @@
 import { formatCourseDate, formatCourseDays, type Weekday } from '$lib/courses.js';
-import { APP_LOCALE } from '$lib/locale.js';
+import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import {
 	PAYMENT_EXPIRING_SOON_DAYS,
 	PAYMENT_STATUS_LABELS,
@@ -91,6 +91,21 @@ export const isCourseActive = isClassActive;
 
 export function isMonthlyEntitlementVigente(endsAt: Date | null, now = new Date()) {
 	return !!endsAt && endsAt > now;
+}
+
+export function isMonthlyEntitlementVigenteForSession(
+	endsAt: Date | null,
+	startsAt: Date,
+	sessionDate: string
+) {
+	if (!endsAt) {
+		return false;
+	}
+
+	const endsAtDate = getCalendarDateInAppTimezone(endsAt);
+	const startsAtDate = getCalendarDateInAppTimezone(startsAt);
+
+	return startsAtDate <= sessionDate && sessionDate <= endsAtDate;
 }
 
 export function resolveEntitlementStatus(

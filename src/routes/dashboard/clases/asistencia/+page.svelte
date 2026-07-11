@@ -2,6 +2,7 @@
 	import DropInQuickRegisterDialog from '$lib/components/attendance/drop-in-quick-register-dialog.svelte';
 	import FullPassStudentPicker from '$lib/components/attendance/full-pass-student-picker.svelte';
 	import AttendanceStatusToggle from '$lib/components/attendance/attendance-status-toggle.svelte';
+	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -26,6 +27,7 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import LockIcon from '@lucide/svelte/icons/lock';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import type { PageData } from './$types.js';
@@ -115,7 +117,7 @@
 	const entriesPayload = $derived(
 		JSON.stringify(
 			displayMembers
-				.filter((member) => statuses[member.studentId])
+				.filter((member) => member.canRegisterAttendance && statuses[member.studentId])
 				.map((member) => ({
 					studentId: member.studentId,
 					entitlementId: member.entitlementId,
@@ -124,9 +126,13 @@
 		)
 	);
 
+	const membersRequiringMark = $derived(
+		displayMembers.filter((member) => member.canRegisterAttendance)
+	);
+
 	const allMarked = $derived(
-		displayMembers.length > 0 &&
-			displayMembers.every((member) => statuses[member.studentId] !== '')
+		membersRequiringMark.length > 0 &&
+			membersRequiringMark.every((member) => statuses[member.studentId] !== '')
 	);
 
 	const dropInMembers = $derived(
@@ -135,6 +141,7 @@
 	const enrolledMembers = $derived(
 		displayMembers.filter((member) => member.entitlementType !== 'drop_in')
 	);
+	const attendanceEditable = $derived(data.attendanceEditable);
 
 	function addFullPassStudent(student: EligibleFullPassStudent) {
 		const member = toFullPassAttendanceMember(student);
@@ -159,6 +166,10 @@
 
 	function isClientAddedFullPass(studentId: number) {
 		return clientAddedStudentIds.has(studentId);
+	}
+
+	function canEditMemberAttendance(member: AttendanceMember) {
+		return attendanceEditable && member.canRegisterAttendance;
 	}
 
 	function applyFilters() {
@@ -241,7 +252,13 @@
 					</Field.Field>
 					<Field.Field>
 						<Field.FieldLabel for="sessionDate">Fecha de clase</Field.FieldLabel>
-						<Input id="sessionDate" type="date" bind:value={sessionDate} />
+						<Input
+							id="sessionDate"
+							type="date"
+							bind:value={sessionDate}
+							min={data.course?.startDate}
+							max={data.course?.endDate}
+						/>
 					</Field.Field>
 					<Button type="button" onclick={applyFilters} disabled={!selectedCourseId}>
 						Cargar alumnos
@@ -252,6 +269,15 @@
 	</Card.Root>
 
 	{#if data.course}
+		{#if data.attendanceValidationError}
+			<Card.Root class="border-amber-500/40 bg-amber-500/5">
+				<Card.Content class="flex items-center gap-2 py-4 text-sm">
+					<LockIcon class="size-4 shrink-0" />
+					<span>{data.attendanceValidationError}</span>
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
 		<Card.Root>
 			<Card.Header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 				<div>
@@ -264,9 +290,14 @@
 					<FullPassStudentPicker
 						students={data.eligibleFullPassStudents}
 						excludedStudentIds={excludedFullPassStudentIds}
+						disabled={!attendanceEditable}
 						onSelect={addFullPassStudent}
 					/>
-					<Button variant="secondary" onclick={() => (dropInDialogOpen = true)}>
+					<Button
+						variant="secondary"
+						disabled={!attendanceEditable}
+						onclick={() => (dropInDialogOpen = true)}
+					>
 						<UserPlusIcon data-icon="inline-start" />
 						Pago por clase
 					</Button>
@@ -326,12 +357,20 @@
 																<span class="text-muted-foreground text-xs">{member.planName}</span>
 															</div>
 														</Table.Cell>
-														<Table.Cell>{member.coverageLabel}</Table.Cell>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5">
+																<span>{member.coverageLabel}</span>
+																{#if !member.canRegisterAttendance}
+																	<span class="text-destructive text-xs">Pago no vigente</span>
+																{/if}
+															</div>
+														</Table.Cell>
 														<Table.Cell>
 															<div class="flex items-center gap-2">
 																<AttendanceStatusToggle
 																	value={statuses[member.studentId]}
 																	savedStatus={member.currentStatus}
+																	disabled={!canEditMemberAttendance(member)}
 																	onValueChange={(next) => {
 																		statuses = {
 																			...statuses,
@@ -339,16 +378,26 @@
 																		};
 																	}}
 																/>
-																{#if isClientAddedFullPass(member.studentId)}
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="icon-sm"
-																		aria-label={`Quitar a ${member.fullName}`}
-																		onclick={() => removeAddedFullPassStudent(member.studentId)}
+																{#if isClientAddedFullPass(member.studentId) && attendanceEditable}
+																	<ConfirmDialog
+																		title={`¿Quitar a ${member.fullName}?`}
+																		description="Se quitará al alumno de la lista de asistencia antes de guardar."
+																		confirmLabel="Quitar"
+																		onConfirm={() =>
+																			removeAddedFullPassStudent(member.studentId)}
 																	>
-																		<XIcon />
-																	</Button>
+																		{#snippet children({ props })}
+																			<Button
+																				{...props}
+																				type="button"
+																				variant="ghost"
+																				size="icon-sm"
+																				aria-label={`Quitar a ${member.fullName}`}
+																			>
+																				<XIcon />
+																			</Button>
+																		{/snippet}
+																	</ConfirmDialog>
 																{/if}
 															</div>
 														</Table.Cell>
@@ -383,12 +432,20 @@
 																<span class="text-muted-foreground text-xs">{member.planName}</span>
 															</div>
 														</Table.Cell>
-														<Table.Cell>{member.coverageLabel}</Table.Cell>
+														<Table.Cell>
+															<div class="flex flex-col gap-0.5">
+																<span>{member.coverageLabel}</span>
+																{#if !member.canRegisterAttendance}
+																	<span class="text-destructive text-xs">Pago no vigente</span>
+																{/if}
+															</div>
+														</Table.Cell>
 														<Table.Cell>
 															<div class="flex items-center gap-2">
 																<AttendanceStatusToggle
 																	value={statuses[member.studentId]}
 																	savedStatus={member.currentStatus}
+																	disabled={!canEditMemberAttendance(member)}
 																	onValueChange={(next) => {
 																		statuses = {
 																			...statuses,
@@ -396,16 +453,26 @@
 																		};
 																	}}
 																/>
-																{#if isClientAddedFullPass(member.studentId)}
-																	<Button
-																		type="button"
-																		variant="ghost"
-																		size="icon-sm"
-																		aria-label={`Quitar a ${member.fullName}`}
-																		onclick={() => removeAddedFullPassStudent(member.studentId)}
+																{#if isClientAddedFullPass(member.studentId) && attendanceEditable}
+																	<ConfirmDialog
+																		title={`¿Quitar a ${member.fullName}?`}
+																		description="Se quitará al alumno de la lista de asistencia antes de guardar."
+																		confirmLabel="Quitar"
+																		onConfirm={() =>
+																			removeAddedFullPassStudent(member.studentId)}
 																	>
-																		<XIcon />
-																	</Button>
+																		{#snippet children({ props })}
+																			<Button
+																				{...props}
+																				type="button"
+																				variant="ghost"
+																				size="icon-sm"
+																				aria-label={`Quitar a ${member.fullName}`}
+																			>
+																				<XIcon />
+																			</Button>
+																		{/snippet}
+																	</ConfirmDialog>
 																{/if}
 															</div>
 														</Table.Cell>
@@ -419,13 +486,25 @@
 
 							<div class="mt-4 flex items-center justify-between gap-4">
 								<p class="text-muted-foreground text-sm">
-									{#if allMarked}
+									{#if !attendanceEditable}
+										La clase ya finalizó. Solo puedes consultar el registro de esta sesión.
+									{:else if membersRequiringMark.length === 0}
+										No hay alumnos con pago vigente para registrar en esta sesión.
+									{:else if allMarked}
 										Todos los alumnos tienen un estado seleccionado.
 									{:else}
 										Marca asistencia o falta para cada alumno antes de guardar.
 									{/if}
 								</p>
-								<Button type="submit" disabled={submitting || !allMarked}>
+								<Button
+									type="submit"
+									disabled={
+										submitting ||
+										!attendanceEditable ||
+										!allMarked ||
+										membersRequiringMark.length === 0
+									}
+								>
 									{submitting ? 'Guardando...' : 'Guardar asistencia'}
 								</Button>
 							</div>
