@@ -18,7 +18,11 @@ export function normalizePhone(value: string): string | null {
 	return digits.length === PHONE_DIGIT_COUNT ? digits : null;
 }
 
-export function formatPhone(value: string): string {
+export function formatPhone(value: string | null | undefined): string {
+	if (!value) {
+		return '';
+	}
+
 	const digits = extractPhoneDigits(value);
 
 	if (digits.length !== PHONE_DIGIT_COUNT) {

@@ -142,7 +142,7 @@
 								{#each classGroup.members as member (member.studentId)}
 									<Table.Row>
 										<Table.Cell class="font-medium">{member.fullName}</Table.Cell>
-										<Table.Cell>{formatPhone(member.phone)}</Table.Cell>
+										<Table.Cell>{formatPhone(member.phone) || '—'}</Table.Cell>
 										<Table.Cell>{member.modalityLabel}</Table.Cell>
 										<Table.Cell>{member.planName}</Table.Cell>
 										<Table.Cell>

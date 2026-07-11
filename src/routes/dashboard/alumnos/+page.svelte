@@ -98,7 +98,7 @@
 					{#each displayedStudents as student (student.id)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{student.fullName}</Table.Cell>
-							<Table.Cell>{formatPhone(student.phone)}</Table.Cell>
+							<Table.Cell>{formatPhone(student.phone) || '—'}</Table.Cell>
 							<Table.Cell>{formatEnrollmentDate(student.enrolledAt)}</Table.Cell>
 							<Table.Cell>
 								<Badge variant={student.active ? 'default' : 'secondary'}>

@@ -78,14 +78,14 @@
 		</Card.Root>
 		<Card.Root>
 			<Card.Header>
-				<Card.Description>Total de clases</Card.Description>
-				<Card.Title class="text-3xl font-bold tabular-nums">{groups.length}</Card.Title>
+				<Card.Description>Alumnos inscritos en clases</Card.Description>
+				<Card.Title class="text-3xl font-bold tabular-nums">{data.enrolledStudentCount}</Card.Title>
 			</Card.Header>
 		</Card.Root>
 		<Card.Root>
 			<Card.Header>
-				<Card.Description>Inscripciones en clases</Card.Description>
-				<Card.Title class="text-3xl font-bold tabular-nums">{data.totalEnrollments}</Card.Title>
+				<Card.Description>Alumnos con full pass</Card.Description>
+				<Card.Title class="text-3xl font-bold tabular-nums">{data.fullPassStudentCount}</Card.Title>
 			</Card.Header>
 		</Card.Root>
 	</div>

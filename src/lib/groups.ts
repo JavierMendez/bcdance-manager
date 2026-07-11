@@ -24,7 +24,7 @@ export type SerializedCourse = SerializedClassGroup;
 export type GroupMember = {
 	studentId: number;
 	fullName: string;
-	phone: string;
+	phone: string | null;
 	studentActive: boolean;
 	modalityLabel: string;
 	planName: string;
@@ -58,7 +58,8 @@ export type CourseGroup = ClassGroup;
 export type GroupsPageData = {
 	groups: ClassGroup[];
 	activeClassCount: number;
-	totalEnrollments: number;
+	enrolledStudentCount: number;
+	fullPassStudentCount: number;
 };
 
 type EntitlementRow = {
@@ -71,7 +72,7 @@ type EntitlementRow = {
 	student: {
 		id: number;
 		fullName: string;
-		phone: string;
+		phone: string | null;
 		active: boolean;
 	};
 };
@@ -326,6 +327,30 @@ export function buildClassGroups(
 
 /** @deprecated Use buildClassGroups */
 export const buildCourseGroups = buildClassGroups;
+
+export function countMonthlyEnrolledStudents(entitlements: EntitlementRow[]): number {
+	const enrolledStudentIds = new Set<number>();
+
+	for (const row of entitlements) {
+		if (row.entitlementType === 'monthly_plan' && row.groupId !== null) {
+			enrolledStudentIds.add(row.student.id);
+		}
+	}
+
+	return enrolledStudentIds.size;
+}
+
+export function countFullPassStudents(entitlements: EntitlementRow[]): number {
+	const fullPassStudentIds = new Set<number>();
+
+	for (const row of entitlements) {
+		if (row.entitlementType === 'full_pass' && (row.hoursRemaining ?? 0) > 0) {
+			fullPassStudentIds.add(row.student.id);
+		}
+	}
+
+	return fullPassStudentIds.size;
+}
 
 export function formatClassMeta(classGroup: Pick<ClassGroup, 'days' | 'startDate' | 'endDate'>) {
 	return `${formatCourseDays(classGroup.days)} · ${formatCourseDate(classGroup.startDate)} – ${formatCourseDate(classGroup.endDate)}`;

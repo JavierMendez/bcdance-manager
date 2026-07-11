@@ -3,8 +3,9 @@ import { extractPhoneDigits, formatPhone, normalizePhone } from '$lib/phone.js';
 
 export type SerializedStudent = {
 	id: number;
+	guid: string;
 	fullName: string;
-	phone: string;
+	phone: string | null;
 	enrolledAt: string;
 	active: boolean;
 	paymentStatus: import('$lib/payments.js').PaymentStatus;
@@ -13,21 +14,20 @@ export type SerializedStudent = {
 export function validateStudentInput(data: { fullName: string; phone: string }) {
 	const errors: Record<string, string> = {};
 	const fullName = data.fullName.trim();
-	const phone = normalizePhone(data.phone);
+	const phoneDigits = extractPhoneDigits(data.phone);
+	const phone = phoneDigits ? normalizePhone(data.phone) : null;
 
 	if (!fullName) {
 		errors.fullName = 'El nombre completo es obligatorio.';
 	}
 
-	if (!phone) {
-		errors.phone = data.phone.trim()
-			? 'El teléfono debe tener 10 dígitos.'
-			: 'El teléfono es obligatorio.';
+	if (phoneDigits && !phone) {
+		errors.phone = 'El teléfono debe tener 10 dígitos.';
 	}
 
 	return {
 		errors,
-		values: { fullName, phone: phone ?? extractPhoneDigits(data.phone) }
+		values: { fullName, phone }
 	};
 }
 

@@ -277,9 +277,6 @@
 				if (!newFullName.trim()) {
 					enrollmentErrors.newFullName = 'El nombre completo es obligatorio.';
 				}
-				if (!newPhone.trim()) {
-					enrollmentErrors.newPhone = 'El teléfono es obligatorio.';
-				}
 			}
 
 			stepErrors = enrollmentErrors;
@@ -471,7 +468,9 @@
 									<option value="">Selecciona un alumno</option>
 									{#each students as student (student.id)}
 										<option value={String(student.id)}>
-											{student.fullName} — {formatPhone(student.phone)}
+											{student.phone
+												? `${student.fullName} — ${formatPhone(student.phone)}`
+												: student.fullName}
 										</option>
 									{/each}
 								</select>
@@ -494,7 +493,6 @@
 								<PhoneInput
 									id="newPhone"
 									bind:value={newPhone}
-									required={studentMode === 'new'}
 								/>
 								{#if stepErrors.newPhone}
 									<FieldError>{stepErrors.newPhone}</FieldError>
@@ -515,7 +513,11 @@
 						>
 							<option value="">{DROP_IN_GUEST_LABEL} — pago ocasional</option>
 							{#each students as student (student.id)}
-								<option value={String(student.id)}>{student.fullName} — {formatPhone(student.phone)}</option>
+								<option value={String(student.id)}>
+									{student.phone
+										? `${student.fullName} — ${formatPhone(student.phone)}`
+										: student.fullName}
+								</option>
 							{/each}
 						</select>
 						{#if stepErrors.studentId}

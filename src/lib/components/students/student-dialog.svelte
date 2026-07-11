@@ -30,7 +30,7 @@
 		mode: Mode;
 		student?: SerializedStudent | null;
 		errors?: Record<string, string>;
-		values?: { fullName: string; phone: string } | null;
+		values?: { fullName: string; phone: string | null } | null;
 		onClosed?: () => void;
 		onSuccess?: (data: Record<string, unknown>) => void;
 	} = $props();
@@ -110,7 +110,6 @@
 							id="phone-{formId}"
 							name="phone"
 							bind:value={phone}
-							required
 							aria-invalid={errors.phone ? true : undefined}
 						/>
 						{#if errors.phone}

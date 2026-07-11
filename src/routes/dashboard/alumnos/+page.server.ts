@@ -6,21 +6,13 @@ import { resolvePaymentStatus } from '$lib/payments.js';
 import { validateStudentInput, type SerializedStudent } from '$lib/students.js';
 import type { Actions, PageServerLoad } from './$types.js';
 
-function isUniqueViolation(error: unknown) {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		error.code === '23505'
-	);
-}
-
 function serializeStudent(
 	student: typeof students.$inferSelect,
 	paymentStatus: SerializedStudent['paymentStatus']
 ): SerializedStudent {
 	return {
 		id: student.id,
+		guid: student.guid,
 		fullName: student.fullName,
 		phone: student.phone,
 		enrolledAt: student.enrolledAt.toISOString(),
@@ -81,28 +73,16 @@ export const actions: Actions = {
 
 		const db = getDb();
 
-		try {
-			const [created] = await db
-				.insert(students)
-				.values({
-					fullName: values.fullName,
-					phone: values.phone,
-					updatedAt: new Date()
-				})
-				.returning();
+		const [created] = await db
+			.insert(students)
+			.values({
+				fullName: values.fullName,
+				phone: values.phone,
+				updatedAt: new Date()
+			})
+			.returning();
 
-			return { success: true, mode: 'create' as const, student: serializeStudent(created, 'vencido') };
-		} catch (error) {
-			if (isUniqueViolation(error)) {
-				return fail(400, {
-					errors: { phone: 'Ya existe un alumno con este teléfono.' },
-					values,
-					mode: 'create' as const
-				});
-			}
-
-			throw error;
-		}
+		return { success: true, mode: 'create' as const, student: serializeStudent(created, 'vencido') };
 	},
 
 	update: async ({ request }) => {
@@ -124,38 +104,25 @@ export const actions: Actions = {
 
 		const db = getDb();
 
-		try {
-			const [updated] = await db
-				.update(students)
-				.set({
-					fullName: values.fullName,
-					phone: values.phone,
-					updatedAt: new Date()
-				})
-				.where(eq(students.id, id))
-				.returning();
+		const [updated] = await db
+			.update(students)
+			.set({
+				fullName: values.fullName,
+				phone: values.phone,
+				updatedAt: new Date()
+			})
+			.where(eq(students.id, id))
+			.returning();
 
-			if (!updated) {
-				return fail(404, { message: 'Alumno no encontrado.' });
-			}
-
-			return {
-				success: true,
-				mode: 'edit' as const,
-				student: serializeStudent(updated, await getPaymentStatusForStudent(db, id))
-			};
-		} catch (error) {
-			if (isUniqueViolation(error)) {
-				return fail(400, {
-					errors: { phone: 'Ya existe un alumno con este teléfono.' },
-					values,
-					mode: 'edit' as const,
-					id
-				});
-			}
-
-			throw error;
+		if (!updated) {
+			return fail(404, { message: 'Alumno no encontrado.' });
 		}
+
+		return {
+			success: true,
+			mode: 'edit' as const,
+			student: serializeStudent(updated, await getPaymentStatusForStudent(db, id))
+		};
 	},
 
 	toggleActive: async ({ request }) => {

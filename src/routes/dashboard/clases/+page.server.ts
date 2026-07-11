@@ -4,6 +4,8 @@ import { getDb } from '$lib/server/db/index.js';
 import {
 	attachDropInPaymentsToGroups,
 	buildClassGroups,
+	countMonthlyEnrolledStudents,
+	countFullPassStudents,
 	type ClassGroup,
 	type GroupsPageData,
 	type SerializedClassGroup
@@ -120,7 +122,8 @@ export const load: PageServerLoad = async () => {
 			return a.name.localeCompare(b.name, 'es');
 		}),
 		activeClassCount: classGroups.filter((group) => group.active).length,
-		totalEnrollments: classGroups.reduce((sum, group) => sum + group.enrolledCount, 0)
+		enrolledStudentCount: countMonthlyEnrolledStudents(entitlementRows),
+		fullPassStudentCount: countFullPassStudents(entitlementRows)
 	};
 
 	return {

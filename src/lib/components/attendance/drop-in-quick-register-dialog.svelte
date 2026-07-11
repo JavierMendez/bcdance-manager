@@ -144,7 +144,11 @@
 					>
 						<option value="">{DROP_IN_GUEST_LABEL} — solo registrar pago</option>
 						{#each students as student (student.id)}
-							<option value={String(student.id)}>{student.fullName} — {formatPhone(student.phone)}</option>
+							<option value={String(student.id)}>
+								{student.phone
+									? `${student.fullName} — ${formatPhone(student.phone)}`
+									: student.fullName}
+							</option>
 						{/each}
 					</select>
 					{#if errors.studentId}

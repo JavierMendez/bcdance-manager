@@ -27,15 +27,6 @@ import {
 import { getEnrolledStudentIdsForClass } from '$lib/groups.js';
 import { validateStudentInput } from '$lib/students.js';
 
-function isUniqueViolation(error: unknown) {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		error.code === '23505'
-	);
-}
-
 export function parseWizardForm(formData: FormData) {
 	return {
 		studentMode: String(formData.get('studentMode') ?? 'existing'),
@@ -181,25 +172,17 @@ export async function registerPaymentWizard(
 				if (studentErrors.fullName) formErrors.newFullName = studentErrors.fullName;
 				if (studentErrors.phone) formErrors.newPhone = studentErrors.phone;
 			} else {
-				try {
-					const [created] = await db
-						.insert(students)
-						.values({
-							fullName: values.fullName,
-							phone: values.phone,
-							updatedAt: new Date()
-						})
-						.returning({ id: students.id });
+				const [created] = await db
+					.insert(students)
+					.values({
+						fullName: values.fullName,
+						phone: values.phone,
+						updatedAt: new Date()
+					})
+					.returning({ id: students.id });
 
-					studentId = created.id;
-					wizardData.studentId = String(created.id);
-				} catch (error) {
-					if (isUniqueViolation(error)) {
-						formErrors.newPhone = 'Ya existe un alumno con este teléfono.';
-					} else {
-						throw error;
-					}
-				}
+				studentId = created.id;
+				wizardData.studentId = String(created.id);
 			}
 		} else if (!studentId) {
 			formErrors.studentId = 'Selecciona un alumno.';
