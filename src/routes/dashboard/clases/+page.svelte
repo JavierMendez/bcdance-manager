@@ -16,6 +16,8 @@
 	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import TicketIcon from '@lucide/svelte/icons/ticket';
+	import CircleDollarSignIcon from '@lucide/svelte/icons/circle-dollar-sign';
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import type { PageData } from './$types.js';
 
@@ -35,6 +37,18 @@
 		const classGroup = result.classGroup as ClassGroup;
 		const current = optimisticGroups ?? data.groups;
 		optimisticGroups = [classGroup, ...current];
+	}
+
+	function formatMonthlyCount(count: number) {
+		return `${count} mensual${count === 1 ? '' : 'es'}`;
+	}
+
+	function formatFullPassCount(count: number) {
+		return `${count} full pass`;
+	}
+
+	function formatDropInCount(count: number) {
+		return `${count} clase${count === 1 ? '' : 's'} suelta${count === 1 ? '' : 's'}`;
 	}
 
 	$effect(() => {
@@ -121,7 +135,15 @@
 										<Badge>Vigente</Badge>
 										<Badge variant="secondary">
 											<UsersIcon />
-											{group.enrolledCount} alumno{group.enrolledCount === 1 ? '' : 's'}
+											{formatMonthlyCount(group.enrolledCount)}
+										</Badge>
+										<Badge variant="outline">
+											<TicketIcon />
+											{formatFullPassCount(group.fullPassCount)}
+										</Badge>
+										<Badge variant="outline">
+											<CircleDollarSignIcon />
+											{formatDropInCount(group.dropInCount)}
 										</Badge>
 									</div>
 									<Card.Description>{group.description}</Card.Description>
@@ -163,7 +185,15 @@
 								<Badge variant="secondary">Finalizado o próximo</Badge>
 								<Badge variant="outline">
 									<UsersIcon />
-									{group.enrolledCount} alumno{group.enrolledCount === 1 ? '' : 's'}
+									{formatMonthlyCount(group.enrolledCount)}
+								</Badge>
+								<Badge variant="outline">
+									<TicketIcon />
+									{formatFullPassCount(group.fullPassCount)}
+								</Badge>
+								<Badge variant="outline">
+									<CircleDollarSignIcon />
+									{formatDropInCount(group.dropInCount)}
 								</Badge>
 							</div>
 							<Card.Description>{group.description}</Card.Description>

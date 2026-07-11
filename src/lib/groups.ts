@@ -47,6 +47,7 @@ export type CourseDropInPayment = ClassDropInPayment;
 export type ClassGroup = SerializedClassGroup & {
 	active: boolean;
 	enrolledCount: number;
+	fullPassCount: number;
 	dropInCount: number;
 	members: GroupMember[];
 	dropInPayments: ClassDropInPayment[];
@@ -87,6 +88,10 @@ export function isClassActive(
 
 /** @deprecated Use isClassActive */
 export const isCourseActive = isClassActive;
+
+export function isMonthlyEntitlementVigente(endsAt: Date | null, now = new Date()) {
+	return !!endsAt && endsAt > now;
+}
 
 export function resolveEntitlementStatus(
 	entitlementType: string,
@@ -241,11 +246,20 @@ export function buildClassGroups(
 
 	return classes.map((classGroup) => {
 		const membersByStudent = new Map<number, GroupMember>();
+		const monthlyStudentIds = new Set<number>();
+		const dropInStudentIds = new Set<number>();
+		const fullPassStudentIds = new Set<number>();
 
 		for (const row of entitlements) {
 			if (row.entitlementType !== 'monthly_plan' || row.groupId !== classGroup.id) {
 				continue;
 			}
+
+			if (!isMonthlyEntitlementVigente(row.endsAt, now)) {
+				continue;
+			}
+
+			monthlyStudentIds.add(row.student.id);
 
 			const fullPass = activeFullPassByStudent.get(row.student.id) ?? null;
 			const member = buildMemberFromEntitlements(row.student, row, fullPass, null, now);
@@ -263,6 +277,8 @@ export function buildClassGroups(
 			if ((row.classesRemaining ?? 0) <= 0) {
 				continue;
 			}
+
+			dropInStudentIds.add(row.student.id);
 
 			if (membersByStudent.has(row.student.id)) {
 				const existing = membersByStudent.get(row.student.id)!;
@@ -294,17 +310,21 @@ export function buildClassGroups(
 			}
 		}
 
-		if (isClassActive(classGroup, now)) {
-			for (const [studentId, fullPassRow] of activeFullPassByStudent) {
-				if (membersByStudent.has(studentId)) {
-					continue;
-				}
+		for (const [studentId, fullPassRow] of activeFullPassByStudent) {
+			if (monthlyStudentIds.has(studentId)) {
+				continue;
+			}
 
-				const member = buildMemberFromEntitlements(fullPassRow.student, null, fullPassRow, null, now);
+			fullPassStudentIds.add(studentId);
 
-				if (member) {
-					membersByStudent.set(studentId, member);
-				}
+			if (!isClassActive(classGroup, now) || membersByStudent.has(studentId)) {
+				continue;
+			}
+
+			const member = buildMemberFromEntitlements(fullPassRow.student, null, fullPassRow, null, now);
+
+			if (member) {
+				membersByStudent.set(studentId, member);
 			}
 		}
 
@@ -312,13 +332,12 @@ export function buildClassGroups(
 			a.fullName.localeCompare(b.fullName, 'es')
 		);
 
-		const dropInCount = members.filter((member) => member.modalityLabel.includes('Por clase')).length;
-
 		return {
 			...classGroup,
 			active: isClassActive(classGroup, now),
-			enrolledCount: members.length,
-			dropInCount,
+			enrolledCount: monthlyStudentIds.size,
+			fullPassCount: fullPassStudentIds.size,
+			dropInCount: dropInStudentIds.size,
 			members,
 			dropInPayments: []
 		};
@@ -328,11 +347,18 @@ export function buildClassGroups(
 /** @deprecated Use buildClassGroups */
 export const buildCourseGroups = buildClassGroups;
 
-export function countMonthlyEnrolledStudents(entitlements: EntitlementRow[]): number {
+export function countMonthlyEnrolledStudents(
+	entitlements: EntitlementRow[],
+	now = new Date()
+): number {
 	const enrolledStudentIds = new Set<number>();
 
 	for (const row of entitlements) {
-		if (row.entitlementType === 'monthly_plan' && row.groupId !== null) {
+		if (
+			row.entitlementType === 'monthly_plan' &&
+			row.groupId !== null &&
+			isMonthlyEntitlementVigente(row.endsAt, now)
+		) {
 			enrolledStudentIds.add(row.student.id);
 		}
 	}

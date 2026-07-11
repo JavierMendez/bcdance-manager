@@ -62,12 +62,13 @@ export const load: PageServerLoad = async () => {
 export const actions: Actions = {
 	create: async ({ request }) => {
 		const formData = await request.formData();
-		const { errors, values } = validateStudentInput({
+		const { errors, values, parsed } = validateStudentInput({
 			fullName: String(formData.get('fullName') ?? ''),
-			phone: String(formData.get('phone') ?? '')
+			phone: String(formData.get('phone') ?? ''),
+			enrolledAt: String(formData.get('enrolledAt') ?? '')
 		});
 
-		if (Object.keys(errors).length > 0) {
+		if (Object.keys(errors).length > 0 || !parsed) {
 			return fail(400, { errors, values, mode: 'create' as const });
 		}
 
@@ -76,8 +77,9 @@ export const actions: Actions = {
 		const [created] = await db
 			.insert(students)
 			.values({
-				fullName: values.fullName,
-				phone: values.phone,
+				fullName: parsed.fullName,
+				phone: parsed.phone,
+				enrolledAt: parsed.enrolledAt,
 				updatedAt: new Date()
 			})
 			.returning();
@@ -93,12 +95,13 @@ export const actions: Actions = {
 			return fail(400, { message: 'Alumno no válido.' });
 		}
 
-		const { errors, values } = validateStudentInput({
+		const { errors, values, parsed } = validateStudentInput({
 			fullName: String(formData.get('fullName') ?? ''),
-			phone: String(formData.get('phone') ?? '')
+			phone: String(formData.get('phone') ?? ''),
+			enrolledAt: String(formData.get('enrolledAt') ?? '')
 		});
 
-		if (Object.keys(errors).length > 0) {
+		if (Object.keys(errors).length > 0 || !parsed) {
 			return fail(400, { errors, values, mode: 'edit' as const, id });
 		}
 
@@ -107,8 +110,9 @@ export const actions: Actions = {
 		const [updated] = await db
 			.update(students)
 			.set({
-				fullName: values.fullName,
-				phone: values.phone,
+				fullName: parsed.fullName,
+				phone: parsed.phone,
+				enrolledAt: parsed.enrolledAt,
 				updatedAt: new Date()
 			})
 			.where(eq(students.id, id))

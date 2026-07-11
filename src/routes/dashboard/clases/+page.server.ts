@@ -249,6 +249,7 @@ export const actions: Actions = {
 			...created,
 			active: true,
 			enrolledCount: 0,
+			fullPassCount: 0,
 			dropInCount: 0,
 			members: [],
 			dropInPayments: []

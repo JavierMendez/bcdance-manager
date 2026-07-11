@@ -1,4 +1,4 @@
-import { formatDropInCoverage, formatFullPassCoverage } from '$lib/groups.js';
+import { formatDropInCoverage, formatFullPassCoverage, isMonthlyEntitlementVigente } from '$lib/groups.js';
 import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import { DROP_IN_GUEST_LABEL } from '$lib/payments.js';
 
@@ -113,10 +113,6 @@ export function parseAttendanceEntries(raw: string): {
 	} catch {
 		return { entries: [], errors: ['No se pudo leer la asistencia enviada.'] };
 	}
-}
-
-export function isMonthlyEntitlementVigente(endsAt: Date | null, now = new Date()) {
-	return !!endsAt && endsAt > now;
 }
 
 export function toFullPassAttendanceMember(

@@ -10,7 +10,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import PhoneInput from '$lib/components/phone-input.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { formatEnrollmentDate, type SerializedStudent } from '$lib/students.js';
+	import { toStudentFormValues, type SerializedStudent } from '$lib/students.js';
 	import { extractPhoneDigits } from '$lib/phone.js';
 	import { createDialogSubmitHandler } from '$lib/form-enhance.js';
 	import { enhance } from '$app/forms';
@@ -30,7 +30,7 @@
 		mode: Mode;
 		student?: SerializedStudent | null;
 		errors?: Record<string, string>;
-		values?: { fullName: string; phone: string | null } | null;
+		values?: { fullName: string; phone: string | null; enrolledAt: string } | null;
 		onClosed?: () => void;
 		onSuccess?: (data: Record<string, unknown>) => void;
 	} = $props();
@@ -41,19 +41,20 @@
 	const description = $derived(
 		mode === 'create'
 			? 'Completa los datos para registrar un nuevo alumno.'
-			: 'Actualiza los datos del alumno. La fecha de inscripción no se puede modificar.'
+			: 'Actualiza los datos del alumno.'
 	);
 
 	let fullName = $state('');
 	let phone = $state('');
+	let enrolledAt = $state('');
 	let submitting = $state(false);
-
-	const enrolledAt = $derived(student?.enrolledAt ?? new Date().toISOString());
 
 	$effect(() => {
 		if (open) {
-			fullName = values?.fullName ?? student?.fullName ?? '';
-			phone = extractPhoneDigits(values?.phone ?? student?.phone ?? '');
+			const defaults = toStudentFormValues(student);
+			fullName = values?.fullName ?? defaults.fullName;
+			phone = extractPhoneDigits(values?.phone ?? defaults.phone);
+			enrolledAt = values?.enrolledAt ?? defaults.enrolledAt;
 		}
 	});
 
@@ -117,19 +118,21 @@
 						{/if}
 					</Field>
 
-					<Field>
+					<Field data-invalid={errors.enrolledAt ? true : undefined}>
 						<FieldLabel for="enrolledAt-{formId}">Fecha de inscripción</FieldLabel>
 						<Input
 							id="enrolledAt-{formId}"
-							value={formatEnrollmentDate(enrolledAt)}
-							disabled
-							readonly
+							name="enrolledAt"
+							type="date"
+							bind:value={enrolledAt}
+							required
+							aria-invalid={errors.enrolledAt ? true : undefined}
 						/>
-						<FieldDescription>
-							{mode === 'create'
-								? 'Se registrará automáticamente con la fecha de hoy.'
-								: 'Este campo no se puede modificar.'}
-						</FieldDescription>
+						{#if errors.enrolledAt}
+							<FieldError>{errors.enrolledAt}</FieldError>
+						{:else if mode === 'create'}
+							<FieldDescription>Por defecto se usa la fecha de hoy.</FieldDescription>
+						{/if}
 					</Field>
 				</FieldGroup>
 			</form>
