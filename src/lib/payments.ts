@@ -399,8 +399,8 @@ export function calculateWizardTotal(
 	return total;
 }
 
-export function parseDiscountPercent(value: string): number {
-	const trimmed = value.trim();
+export function parseDiscountPercent(value: string | number | null | undefined): number {
+	const trimmed = String(value ?? '').trim();
 	if (!trimmed) {
 		return 0;
 	}
