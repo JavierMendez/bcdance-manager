@@ -1,5 +1,6 @@
 <script lang="ts">
 	import StudentDialog from '$lib/components/students/student-dialog.svelte';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -23,6 +24,15 @@
 	let optimisticStudents = $state<SerializedStudent[] | null>(null);
 
 	const displayedStudents = $derived(optimisticStudents ?? students);
+	const totalStudentCount = $derived(displayedStudents.length);
+	const currentPaymentStudentCount = $derived(
+		displayedStudents.filter(
+			(student) => student.paymentStatus === 'vigente' || student.paymentStatus === 'por_vencer'
+		).length
+	);
+	const overduePaymentStudentCount = $derived(
+		displayedStudents.filter((student) => student.paymentStatus === 'vencido').length
+	);
 
 	function handleStudentSaved(data: Record<string, unknown>) {
 		const updated = data.student as SerializedStudent;
@@ -63,7 +73,7 @@
 	});
 </script>
 
-<div class="flex flex-1 flex-col gap-4">
+<div class="flex flex-1 flex-col gap-6">
 	<div class="flex items-center justify-between">
 		<div>
 			<h2 class="text-2xl font-bold tracking-tight">Alumnos</h2>
@@ -73,6 +83,31 @@
 			<PlusIcon data-icon="inline-start" />
 			Nuevo alumno
 		</Button>
+	</div>
+
+	<div class="grid gap-4 sm:grid-cols-3">
+		<Card.Root>
+			<Card.Header>
+				<Card.Description>Total de alumnos</Card.Description>
+				<Card.Title class="text-3xl font-bold tabular-nums">{totalStudentCount}</Card.Title>
+			</Card.Header>
+		</Card.Root>
+		<Card.Root>
+			<Card.Header>
+				<Card.Description>Alumnos con pagos vigentes</Card.Description>
+				<Card.Title class="text-3xl font-bold tabular-nums text-emerald-600">
+					{currentPaymentStudentCount}
+				</Card.Title>
+			</Card.Header>
+		</Card.Root>
+		<Card.Root>
+			<Card.Header>
+				<Card.Description>Alumnos con pagos vencidos</Card.Description>
+				<Card.Title class="text-3xl font-bold tabular-nums text-destructive">
+					{overduePaymentStudentCount}
+				</Card.Title>
+			</Card.Header>
+		</Card.Root>
 	</div>
 
 	<div class="rounded-xl border">

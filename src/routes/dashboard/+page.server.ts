@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
-import { buildExpiringPaymentStudents, type TodayClassItem } from '$lib/dashboard.js';
+import { buildExpiringFullPassStudents, buildExpiringPaymentStudents, type TodayClassItem } from '$lib/dashboard.js';
 import { buildClassGroups, isClassActive } from '$lib/groups.js';
 import { WEEKDAYS, type Weekday } from '$lib/courses.js';
 import { getWeekdayIndexInAppTimezone } from '$lib/locale.js';
@@ -36,7 +36,8 @@ export const load: PageServerLoad = async () => {
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
 				active: studentEntitlements.active,
-				planName: paymentPlans.name
+				planName: paymentPlans.name,
+				hoursIncluded: paymentPlans.hoursIncluded
 			})
 			.from(studentEntitlements)
 			.innerJoin(paymentPlans, eq(studentEntitlements.paymentPlanId, paymentPlans.id))
@@ -65,6 +66,7 @@ export const load: PageServerLoad = async () => {
 			classesRemaining: number | null;
 			active: boolean;
 			planName: string;
+			hoursIncluded: number | null;
 		}[]
 	>();
 
@@ -76,12 +78,18 @@ export const load: PageServerLoad = async () => {
 			hoursRemaining: row.hoursRemaining,
 			classesRemaining: row.classesRemaining,
 			active: row.active,
-			planName: row.planName
+			planName: row.planName,
+			hoursIncluded: row.hoursIncluded
 		});
 		entitlementsByStudent.set(row.studentId, current);
 	}
 
 	const expiringPayments = buildExpiringPaymentStudents(
+		studentRows,
+		entitlementsByStudent,
+		now
+	);
+	const expiringFullPassPayments = buildExpiringFullPassStudents(
 		studentRows,
 		entitlementsByStudent,
 		now
@@ -132,6 +140,8 @@ export const load: PageServerLoad = async () => {
 	return {
 		todayClasses,
 		expiringPayments: expiringPayments.items,
-		expiringPaymentsTotal: expiringPayments.total
+		expiringPaymentsTotal: expiringPayments.total,
+		expiringFullPassPayments: expiringFullPassPayments.items,
+		expiringFullPassPaymentsTotal: expiringFullPassPayments.total
 	};
 };

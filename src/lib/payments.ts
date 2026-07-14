@@ -7,6 +7,26 @@ export const DROP_IN_DEFAULT_CLASSES = 1;
 export const DROP_IN_GUEST_LABEL = 'Sin alumno';
 export const PAYMENT_EXPIRING_SOON_DAYS = 7;
 
+export function getFullPassExpiringSoonThreshold(
+	hoursIncluded: number | null = FULL_PASS_DEFAULT_HOURS
+) {
+	const total = hoursIncluded ?? FULL_PASS_DEFAULT_HOURS;
+	return Math.max(1, Math.ceil(total * (PAYMENT_EXPIRING_SOON_DAYS / 30)));
+}
+
+export function isFullPassExpiringSoon(
+	hoursRemaining: number | null,
+	hoursIncluded: number | null = FULL_PASS_DEFAULT_HOURS
+) {
+	const hours = hoursRemaining ?? 0;
+
+	if (hours <= 0) {
+		return false;
+	}
+
+	return hours <= getFullPassExpiringSoonThreshold(hoursIncluded);
+}
+
 export type PaymentStatus = 'vigente' | 'por_vencer' | 'vencido';
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {

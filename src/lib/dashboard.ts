@@ -2,6 +2,7 @@ import { formatPrice } from '$lib/payment-plans.js';
 import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import {
 	PAYMENT_STATUS_LABELS,
+	isFullPassExpiringSoon,
 	resolvePaymentStatus,
 	type EntitlementSnapshot,
 	type PaymentStatus,
@@ -33,8 +34,18 @@ export type StudentAttentionItem = {
 	daysRemaining: number;
 };
 
+export type FullPassAttentionItem = {
+	id: number;
+	fullName: string;
+	phone: string | null;
+	paymentStatus: 'por_vencer';
+	planName: string;
+	hoursRemaining: number;
+};
+
 type EntitlementWithPlan = EntitlementSnapshot & {
 	planName: string;
+	hoursIncluded: number | null;
 };
 
 export function formatDaysUntilExpiry(days: number) {
@@ -47,6 +58,63 @@ export function formatDaysUntilExpiry(days: number) {
 	}
 
 	return `Vence en ${days} días`;
+}
+
+export function formatHoursUntilExpiry(hours: number) {
+	if (hours <= 0) {
+		return 'Sin horas restantes';
+	}
+
+	if (hours === 1) {
+		return 'Queda 1 hora';
+	}
+
+	return `Quedan ${hours} horas`;
+}
+
+export function buildExpiringFullPassStudents(
+	students: { id: number; fullName: string; phone: string | null; active: boolean }[],
+	entitlementsByStudent: Map<number, EntitlementWithPlan[]>,
+	now = new Date(),
+	limit = 5
+) {
+	const expiring: FullPassAttentionItem[] = [];
+
+	for (const student of students) {
+		if (!student.active) {
+			continue;
+		}
+
+		const entitlements = entitlementsByStudent.get(student.id) ?? [];
+		const fullPass = entitlements
+			.filter(
+				(entry) =>
+					entry.active &&
+					entry.entitlementType === 'full_pass' &&
+					isFullPassExpiringSoon(entry.hoursRemaining, entry.hoursIncluded)
+			)
+			.sort((a, b) => (a.hoursRemaining ?? 0) - (b.hoursRemaining ?? 0))[0];
+
+		if (!fullPass) {
+			continue;
+		}
+
+		expiring.push({
+			id: student.id,
+			fullName: student.fullName,
+			phone: student.phone,
+			paymentStatus: 'por_vencer',
+			planName: fullPass.planName,
+			hoursRemaining: fullPass.hoursRemaining ?? 0
+		});
+	}
+
+	expiring.sort((a, b) => a.hoursRemaining - b.hoursRemaining);
+
+	return {
+		items: expiring.slice(0, limit),
+		total: expiring.length
+	};
 }
 
 export function buildExpiringPaymentStudents(
