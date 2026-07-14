@@ -262,7 +262,6 @@ export function buildClassGroups(
 	return classes.map((classGroup) => {
 		const membersByStudent = new Map<number, GroupMember>();
 		const monthlyStudentIds = new Set<number>();
-		const fullPassStudentIds = new Set<number>();
 
 		for (const row of entitlements) {
 			if (row.entitlementType !== 'monthly_plan' || row.groupId !== classGroup.id) {
@@ -322,24 +321,6 @@ export function buildClassGroups(
 			}
 		}
 
-		for (const [studentId, fullPassRow] of activeFullPassByStudent) {
-			if (monthlyStudentIds.has(studentId)) {
-				continue;
-			}
-
-			fullPassStudentIds.add(studentId);
-
-			if (!isClassActive(classGroup, now) || membersByStudent.has(studentId)) {
-				continue;
-			}
-
-			const member = buildMemberFromEntitlements(fullPassRow.student, null, fullPassRow, null, now);
-
-			if (member) {
-				membersByStudent.set(studentId, member);
-			}
-		}
-
 		const members = [...membersByStudent.values()].sort((a, b) =>
 			a.fullName.localeCompare(b.fullName, 'es')
 		);
@@ -348,7 +329,8 @@ export function buildClassGroups(
 			...classGroup,
 			active: isClassActive(classGroup, now),
 			enrolledCount: monthlyStudentIds.size,
-			fullPassCount: fullPassStudentIds.size,
+			fullPassCount: members.filter((member) => member.modalityLabel.includes('Full pass'))
+				.length,
 			dropInCount: 0,
 			members,
 			dropInPayments: []
