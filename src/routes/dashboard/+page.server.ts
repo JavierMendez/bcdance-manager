@@ -3,6 +3,7 @@ import { getDb } from '$lib/server/db/index.js';
 import { type TodayClassItem } from '$lib/dashboard.js';
 import { buildClassGroups, isClassActive } from '$lib/groups.js';
 import { WEEKDAYS, type Weekday } from '$lib/courses.js';
+import { getWeekdayIndexInAppTimezone } from '$lib/locale.js';
 import {
 	groups,
 	programs,
@@ -51,7 +52,7 @@ export const load: PageServerLoad = async () => {
 			.innerJoin(programs, eq(groups.programId, programs.id))
 	]);
 
-	const todayWeekday = WEEKDAYS[(now.getDay() + 6) % 7] as Weekday;
+	const todayWeekday = WEEKDAYS[getWeekdayIndexInAppTimezone(now)] as Weekday;
 	const serializedClasses = groupRows.map((row) => ({
 		id: row.id,
 		programId: row.programId,

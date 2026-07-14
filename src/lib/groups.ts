@@ -82,7 +82,7 @@ export function isClassActive(
 	classGroup: Pick<SerializedClassGroup, 'startDate' | 'endDate'>,
 	now = new Date()
 ) {
-	const today = now.toISOString().slice(0, 10);
+	const today = getCalendarDateInAppTimezone(now);
 	return classGroup.startDate <= today && today <= classGroup.endDate;
 }
 
