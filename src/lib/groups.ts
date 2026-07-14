@@ -329,8 +329,7 @@ export function buildClassGroups(
 			...classGroup,
 			active: isClassActive(classGroup, now),
 			enrolledCount: monthlyStudentIds.size,
-			fullPassCount: members.filter((member) => member.modalityLabel.includes('Full pass'))
-				.length,
+			fullPassCount: 0,
 			dropInCount: 0,
 			members,
 			dropInPayments: []
@@ -435,6 +434,32 @@ export function attachDropInPaymentsToGroups(
 		...group,
 		dropInCount: dropInCountByGroup.get(group.id) ?? 0,
 		dropInPayments: paymentsByGroup.get(group.id) ?? []
+	}));
+}
+
+export function attachSessionAttendanceCountsToGroups(
+	groups: ClassGroup[],
+	attendanceRows: {
+		groupId: number;
+		studentId: number;
+		entitlementType: string;
+	}[]
+): ClassGroup[] {
+	const fullPassStudentsByGroup = new Map<number, Set<number>>();
+
+	for (const row of attendanceRows) {
+		if (row.entitlementType !== 'full_pass') {
+			continue;
+		}
+
+		const students = fullPassStudentsByGroup.get(row.groupId) ?? new Set<number>();
+		students.add(row.studentId);
+		fullPassStudentsByGroup.set(row.groupId, students);
+	}
+
+	return groups.map((group) => ({
+		...group,
+		fullPassCount: fullPassStudentsByGroup.get(group.id)?.size ?? 0
 	}));
 }
 

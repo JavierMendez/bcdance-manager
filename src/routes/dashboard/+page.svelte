@@ -1,6 +1,13 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { formatDaysUntilExpiry } from '$lib/dashboard.js';
+	import {
+		getPaymentStatusBadgeVariant,
+		PAYMENT_STATUS_LABELS
+	} from '$lib/payments.js';
+	import { formatPhone } from '$lib/students.js';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import UsersIcon from '@lucide/svelte/icons/users';
@@ -10,6 +17,8 @@
 	let { data }: { data: PageData } = $props();
 
 	const todayClasses = $derived(data.todayClasses);
+	const expiringPayments = $derived(data.expiringPayments);
+	const expiringPaymentsTotal = $derived(data.expiringPaymentsTotal);
 </script>
 
 <div class="flex flex-1 flex-col gap-6">
@@ -17,6 +26,56 @@
 		<h2 class="text-2xl font-bold tracking-tight">Inicio</h2>
 		<p class="text-muted-foreground text-sm">Clases del día y accesos rápidos a tus tareas.</p>
 	</div>
+
+	<Card.Root>
+		<Card.Header class="flex flex-row items-start justify-between gap-4 space-y-0">
+			<div class="flex flex-col gap-1.5">
+				<Card.Title>Pagos por vencer</Card.Title>
+				<Card.Description>
+					Alumnos activos con plan mensual que vence en los próximos 7 días
+				</Card.Description>
+			</div>
+			{#if expiringPaymentsTotal > expiringPayments.length}
+				<Button variant="ghost" size="sm" href="/dashboard/alumnos">Ver todos</Button>
+			{/if}
+		</Card.Header>
+		<Card.Content>
+			{#if expiringPayments.length === 0}
+				<div class="text-muted-foreground flex min-h-32 items-center justify-center text-sm">
+					No hay pagos próximos a vencer.
+				</div>
+			{:else}
+				<div class="flex flex-col gap-3">
+					{#each expiringPayments as student (student.id)}
+						<div
+							class="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div class="flex flex-col gap-1">
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="font-medium">{student.fullName}</p>
+									<Badge variant={getPaymentStatusBadgeVariant(student.paymentStatus)}>
+										{PAYMENT_STATUS_LABELS[student.paymentStatus]}
+									</Badge>
+								</div>
+								<p class="text-muted-foreground text-sm">
+									{student.planName} · {formatDaysUntilExpiry(student.daysRemaining)}
+								</p>
+								{#if student.phone}
+									<p class="text-muted-foreground text-sm">{formatPhone(student.phone)}</p>
+								{/if}
+							</div>
+							<Button
+								size="sm"
+								href="/dashboard/pagos/registrar?studentId={student.id}"
+							>
+								Registrar pago
+							</Button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>

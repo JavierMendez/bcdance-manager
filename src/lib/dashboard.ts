@@ -2,6 +2,8 @@ import { formatPrice } from '$lib/payment-plans.js';
 import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import {
 	PAYMENT_STATUS_LABELS,
+	resolvePaymentStatus,
+	type EntitlementSnapshot,
 	type PaymentStatus,
 	type PurchaseType,
 	PURCHASE_TYPE_LABELS
@@ -27,7 +29,75 @@ export type StudentAttentionItem = {
 	fullName: string;
 	phone: string | null;
 	paymentStatus: PaymentStatus;
+	planName: string;
+	daysRemaining: number;
 };
+
+type EntitlementWithPlan = EntitlementSnapshot & {
+	planName: string;
+};
+
+export function formatDaysUntilExpiry(days: number) {
+	if (days <= 0) {
+		return 'Vence hoy';
+	}
+
+	if (days === 1) {
+		return 'Vence en 1 día';
+	}
+
+	return `Vence en ${days} días`;
+}
+
+export function buildExpiringPaymentStudents(
+	students: { id: number; fullName: string; phone: string | null; active: boolean }[],
+	entitlementsByStudent: Map<number, EntitlementWithPlan[]>,
+	now = new Date(),
+	limit = 5
+) {
+	const expiring: StudentAttentionItem[] = [];
+
+	for (const student of students) {
+		if (!student.active) {
+			continue;
+		}
+
+		const entitlements = entitlementsByStudent.get(student.id) ?? [];
+		const paymentStatus = resolvePaymentStatus(entitlements, now);
+
+		if (paymentStatus !== 'por_vencer') {
+			continue;
+		}
+
+		const monthly = entitlements
+			.filter((entry) => entry.active && entry.entitlementType === 'monthly_plan' && entry.endsAt)
+			.sort((a, b) => b.endsAt!.getTime() - a.endsAt!.getTime())[0];
+
+		if (!monthly?.endsAt) {
+			continue;
+		}
+
+		const daysRemaining = Math.ceil(
+			(monthly.endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+		);
+
+		expiring.push({
+			id: student.id,
+			fullName: student.fullName,
+			phone: student.phone,
+			paymentStatus: 'por_vencer',
+			planName: monthly.planName,
+			daysRemaining
+		});
+	}
+
+	expiring.sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+	return {
+		items: expiring.slice(0, limit),
+		total: expiring.length
+	};
+}
 
 export type RecentPaymentItem = {
 	id: number;

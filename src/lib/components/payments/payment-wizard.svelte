@@ -51,6 +51,7 @@
 		paymentMethods,
 		intent = 'payment',
 		initialGroupId = '',
+		initialStudentId = '',
 		enrolledStudentIds = [],
 		errors = {},
 		values = null
@@ -61,6 +62,7 @@
 		paymentMethods: readonly PaymentMethod[];
 		intent?: 'payment' | 'enrollment';
 		initialGroupId?: string;
+		initialStudentId?: string;
 		enrolledStudentIds?: readonly number[];
 		errors?: Partial<Record<keyof PaymentWizardData, string>> & {
 			newFullName?: string;
@@ -236,8 +238,15 @@
 			paidAt = values.paidAt;
 			discountPercent = values.discountPercent ?? '0';
 			notes = values.notes;
-		} else if (initialGroupId) {
-			courseId = initialGroupId;
+		} else {
+			if (initialGroupId) {
+				courseId = initialGroupId;
+			}
+
+			if (initialStudentId) {
+				studentMode = 'existing';
+				studentId = initialStudentId;
+			}
 		}
 	});
 

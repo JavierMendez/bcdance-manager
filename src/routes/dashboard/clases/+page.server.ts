@@ -1,8 +1,10 @@
 import { desc, eq, and } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
+import { getTodaySessionDate } from '$lib/attendance.js';
 import { getDb } from '$lib/server/db/index.js';
 import {
 	attachDropInPaymentsToGroups,
+	attachSessionAttendanceCountsToGroups,
 	buildClassGroups,
 	countMonthlyEnrolledStudents,
 	countFullPassStudents,
@@ -13,6 +15,7 @@ import {
 import { validateClassScheduleInput, type Weekday } from '$lib/courses.js';
 import { validateProgramInput } from '$lib/programs.js';
 import {
+	classAttendance,
 	groups,
 	programs,
 	paymentItems,
@@ -48,8 +51,10 @@ function serializeClassGroup(row: {
 export const load: PageServerLoad = async () => {
 	const db = getDb();
 	const now = new Date();
+	const sessionDate = getTodaySessionDate(now);
 
-	const [groupRows, entitlementRows, dropInPaymentRows, programRows] = await Promise.all([
+	const [groupRows, entitlementRows, dropInPaymentRows, programRows, attendanceRows] =
+		await Promise.all([
 		db
 			.select({
 				id: groups.id,
@@ -105,13 +110,24 @@ export const load: PageServerLoad = async () => {
 				)
 			)
 			.orderBy(desc(payments.paidAt)),
-		db.select({ id: programs.id, name: programs.name, description: programs.description }).from(programs).orderBy(programs.name)
+		db.select({ id: programs.id, name: programs.name, description: programs.description }).from(programs).orderBy(programs.name),
+		db
+			.select({
+				groupId: classAttendance.groupId,
+				studentId: classAttendance.studentId,
+				entitlementType: classAttendance.entitlementType
+			})
+			.from(classAttendance)
+			.where(eq(classAttendance.sessionDate, sessionDate))
 	]);
 
 	const serializedClasses = groupRows.map(serializeClassGroup);
-	const classGroups = attachDropInPaymentsToGroups(
-		buildClassGroups(serializedClasses, entitlementRows, now),
-		dropInPaymentRows
+	const classGroups = attachSessionAttendanceCountsToGroups(
+		attachDropInPaymentsToGroups(
+			buildClassGroups(serializedClasses, entitlementRows, now),
+			dropInPaymentRows
+		),
+		attendanceRows
 	);
 
 	const pageData: GroupsPageData = {

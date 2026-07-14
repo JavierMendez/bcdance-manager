@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
-import { type TodayClassItem } from '$lib/dashboard.js';
+import { buildExpiringPaymentStudents, type TodayClassItem } from '$lib/dashboard.js';
 import { buildClassGroups, isClassActive } from '$lib/groups.js';
 import { WEEKDAYS, type Weekday } from '$lib/courses.js';
 import { getWeekdayIndexInAppTimezone } from '$lib/locale.js';
@@ -17,24 +17,28 @@ export const load: PageServerLoad = async () => {
 	const db = getDb();
 	const now = new Date();
 
-	const [entitlementRows, groupRows] = await Promise.all([
+	const [studentRows, entitlementRows, groupRows] = await Promise.all([
 		db
 			.select({
+				id: students.id,
+				fullName: students.fullName,
+				phone: students.phone,
+				active: students.active
+			})
+			.from(students)
+			.where(eq(students.active, true)),
+		db
+			.select({
+				studentId: studentEntitlements.studentId,
 				entitlementType: studentEntitlements.entitlementType,
 				groupId: studentEntitlements.groupId,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
-				planName: paymentPlans.name,
-				student: {
-					id: students.id,
-					fullName: students.fullName,
-					phone: students.phone,
-					active: students.active
-				}
+				active: studentEntitlements.active,
+				planName: paymentPlans.name
 			})
 			.from(studentEntitlements)
-			.innerJoin(students, eq(studentEntitlements.studentId, students.id))
 			.innerJoin(paymentPlans, eq(studentEntitlements.paymentPlanId, paymentPlans.id))
 			.where(eq(studentEntitlements.active, true)),
 		db
@@ -52,6 +56,52 @@ export const load: PageServerLoad = async () => {
 			.innerJoin(programs, eq(groups.programId, programs.id))
 	]);
 
+	const entitlementsByStudent = new Map<
+		number,
+		{
+			entitlementType: string;
+			endsAt: Date | null;
+			hoursRemaining: number | null;
+			classesRemaining: number | null;
+			active: boolean;
+			planName: string;
+		}[]
+	>();
+
+	for (const row of entitlementRows) {
+		const current = entitlementsByStudent.get(row.studentId) ?? [];
+		current.push({
+			entitlementType: row.entitlementType,
+			endsAt: row.endsAt,
+			hoursRemaining: row.hoursRemaining,
+			classesRemaining: row.classesRemaining,
+			active: row.active,
+			planName: row.planName
+		});
+		entitlementsByStudent.set(row.studentId, current);
+	}
+
+	const expiringPayments = buildExpiringPaymentStudents(
+		studentRows,
+		entitlementsByStudent,
+		now
+	);
+
+	const entitlementRowsForClasses = entitlementRows.map((row) => ({
+		entitlementType: row.entitlementType,
+		groupId: row.groupId,
+		endsAt: row.endsAt,
+		hoursRemaining: row.hoursRemaining,
+		classesRemaining: row.classesRemaining,
+		planName: row.planName,
+		student: studentRows.find((student) => student.id === row.studentId) ?? {
+			id: row.studentId,
+			fullName: '',
+			phone: null,
+			active: true
+		}
+	}));
+
 	const todayWeekday = WEEKDAYS[getWeekdayIndexInAppTimezone(now)] as Weekday;
 	const serializedClasses = groupRows.map((row) => ({
 		id: row.id,
@@ -63,7 +113,7 @@ export const load: PageServerLoad = async () => {
 		startDate: row.startDate,
 		endDate: row.endDate
 	}));
-	const classGroups = buildClassGroups(serializedClasses, entitlementRows, now);
+	const classGroups = buildClassGroups(serializedClasses, entitlementRowsForClasses, now);
 	const todayClasses: TodayClassItem[] = classGroups
 		.filter(
 			(classGroup) =>
@@ -79,5 +129,9 @@ export const load: PageServerLoad = async () => {
 		}))
 		.sort((a, b) => a.schedule.localeCompare(b.schedule, 'es'));
 
-	return { todayClasses };
+	return {
+		todayClasses,
+		expiringPayments: expiringPayments.items,
+		expiringPaymentsTotal: expiringPayments.total
+	};
 };
