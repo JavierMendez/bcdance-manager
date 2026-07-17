@@ -418,6 +418,51 @@
 
 	<Card.Root>
 		<Card.Header>
+			<Card.Title>Totales por método de pago</Card.Title>
+			<Card.Description>Ingresos, egresos y saldo neto por método en el periodo</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			{#if summary.paymentMethodBreakdown.length === 0}
+				<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
+					No hay movimientos en este periodo.
+				</div>
+			{:else}
+				<div class="rounded-xl border">
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head>Método</Table.Head>
+								<Table.Head class="text-right">Ingresos</Table.Head>
+								<Table.Head class="text-right">Egresos</Table.Head>
+								<Table.Head class="text-right">Neto</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
+							{#each summary.paymentMethodBreakdown as item (item.paymentMethod)}
+								<Table.Row>
+									<Table.Cell class="font-medium">{item.paymentMethod}</Table.Cell>
+									<Table.Cell class="text-right tabular-nums text-emerald-600">
+										{formatCashFlowCurrency(item.income)}
+									</Table.Cell>
+									<Table.Cell class="text-destructive text-right tabular-nums">
+										{formatCashFlowCurrency(item.expenses)}
+									</Table.Cell>
+									<Table.Cell
+										class={`text-right font-medium tabular-nums ${item.net >= 0 ? 'text-emerald-600' : 'text-destructive'}`}
+									>
+										{formatCashFlowCurrency(item.net)}
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
+				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
 			<Card.Title>Movimientos del periodo</Card.Title>
 			<Card.Description>
 				Lista cronológica de ingresos y egresos registrados

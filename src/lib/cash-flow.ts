@@ -92,6 +92,13 @@ export type CashFlowCategoryBreakdown = {
 	percentage: number;
 };
 
+export type CashFlowPaymentMethodBreakdown = {
+	paymentMethod: PaymentMethod;
+	income: number;
+	expenses: number;
+	net: number;
+};
+
 export type CashFlowChartPoint = {
 	key: string;
 	label: string;
@@ -108,6 +115,7 @@ export type CashFlowSummary = {
 	incomeCount: number;
 	expenseCount: number;
 	categoryBreakdown: CashFlowCategoryBreakdown[];
+	paymentMethodBreakdown: CashFlowPaymentMethodBreakdown[];
 	chartPoints: CashFlowChartPoint[];
 	chartDisplayPoints: CashFlowChartPoint[];
 	movements: CashFlowMovement[];
@@ -364,6 +372,32 @@ export function buildCashFlowSummary(
 		}))
 		.sort((a, b) => b.amount - a.amount);
 
+	const paymentMethodTotals = new Map<string, { income: number; expenses: number }>();
+	for (const row of paymentIncomeRows) {
+		const current = paymentMethodTotals.get(row.paymentMethod) ?? { income: 0, expenses: 0 };
+		current.income += row.totalAmount;
+		paymentMethodTotals.set(row.paymentMethod, current);
+	}
+	for (const row of additionalIncomeRows) {
+		const current = paymentMethodTotals.get(row.paymentMethod) ?? { income: 0, expenses: 0 };
+		current.income += row.amount;
+		paymentMethodTotals.set(row.paymentMethod, current);
+	}
+	for (const row of expenseRows) {
+		const current = paymentMethodTotals.get(row.paymentMethod) ?? { income: 0, expenses: 0 };
+		current.expenses += row.amount;
+		paymentMethodTotals.set(row.paymentMethod, current);
+	}
+
+	const paymentMethodBreakdown = [...paymentMethodTotals.entries()]
+		.map(([paymentMethod, totals]) => ({
+			paymentMethod: paymentMethod as PaymentMethod,
+			income: totals.income,
+			expenses: totals.expenses,
+			net: totals.income - totals.expenses
+		}))
+		.sort((a, b) => b.income + b.expenses - (a.income + a.expenses));
+
 	const periodDays = enumerateDates(period.from, period.to).length;
 	const useMonthlyBuckets = periodDays > 45;
 	const chartPoints: CashFlowChartPoint[] = [];
@@ -466,6 +500,7 @@ export function buildCashFlowSummary(
 		incomeCount: paymentIncomeRows.length + additionalIncomeRows.length,
 		expenseCount: expenseRows.length,
 		categoryBreakdown,
+		paymentMethodBreakdown,
 		chartPoints,
 		chartDisplayPoints,
 		movements
