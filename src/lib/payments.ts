@@ -1,5 +1,5 @@
 import type { BillingPeriod } from '$lib/payment-plans.js';
-import { APP_LOCALE } from '$lib/locale.js';
+import { APP_LOCALE, APP_TIMEZONE } from '$lib/locale.js';
 import { formatPrice } from '$lib/payment-plans.js';
 
 export const FULL_PASS_DEFAULT_HOURS = 12;
@@ -591,6 +591,113 @@ export function formatPaymentDate(isoDate: string) {
 		month: 'long',
 		year: 'numeric',
 		hour: '2-digit',
-		minute: '2-digit'
+		minute: '2-digit',
+		timeZone: APP_TIMEZONE
 	}).format(new Date(isoDate));
+}
+
+export const PAYMENT_LIST_PAGE_SIZE = 20;
+
+export type PaymentListFilters = {
+	q: string;
+	type: PurchaseType | '';
+	method: PaymentMethod | '';
+	from: string;
+	to: string;
+};
+
+export type PaymentListPagination = {
+	page: number;
+	pageSize: number;
+	total: number;
+	totalPages: number;
+};
+
+function isValidFilterDate(value: string) {
+	return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+export function parsePaymentListFilters(searchParams: URLSearchParams): PaymentListFilters {
+	const q = (searchParams.get('q') ?? '').trim();
+	const typeParam = searchParams.get('type') ?? '';
+	const methodParam = searchParams.get('method') ?? '';
+	const fromParam = searchParams.get('from') ?? '';
+	const toParam = searchParams.get('to') ?? '';
+
+	const type = PURCHASE_TYPES.includes(typeParam as PurchaseType)
+		? (typeParam as PurchaseType)
+		: '';
+	const method = PAYMENT_METHODS.includes(methodParam as PaymentMethod)
+		? (methodParam as PaymentMethod)
+		: '';
+
+	let from = isValidFilterDate(fromParam) ? fromParam : '';
+	let to = isValidFilterDate(toParam) ? toParam : '';
+
+	if (from && to && from > to) {
+		[from, to] = [to, from];
+	}
+
+	return { q, type, method, from, to };
+}
+
+/** Una sola fecha (Desde o Hasta) filtra ese día; ambas forman un rango inclusivo. */
+export function resolvePaymentListDateRange(filters: PaymentListFilters) {
+	if (filters.from && filters.to) {
+		return { from: filters.from, to: filters.to };
+	}
+
+	if (filters.from) {
+		return { from: filters.from, to: filters.from };
+	}
+
+	if (filters.to) {
+		return { from: filters.to, to: filters.to };
+	}
+
+	return { from: '', to: '' };
+}
+
+export function parsePaymentListPage(searchParams: URLSearchParams) {
+	const page = Number(searchParams.get('page'));
+
+	if (!Number.isInteger(page) || page < 1) {
+		return 1;
+	}
+
+	return page;
+}
+
+export function paymentListHasActiveFilters(filters: PaymentListFilters) {
+	return Boolean(filters.q || filters.type || filters.method || filters.from || filters.to);
+}
+
+export function buildPaymentListSearchParams(filters: PaymentListFilters, page: number) {
+	const params = new URLSearchParams();
+
+	if (filters.q) {
+		params.set('q', filters.q);
+	}
+
+	if (filters.type) {
+		params.set('type', filters.type);
+	}
+
+	if (filters.method) {
+		params.set('method', filters.method);
+	}
+
+	if (filters.from) {
+		params.set('from', filters.from);
+	}
+
+	if (filters.to) {
+		params.set('to', filters.to);
+	}
+
+	if (page > 1) {
+		params.set('page', String(page));
+	}
+
+	return params;
 }
