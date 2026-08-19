@@ -12,6 +12,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { WEEKDAYS, type ClassScheduleFormValues } from '$lib/courses.js';
 	import type { SerializedProgram } from '$lib/programs.js';
@@ -46,6 +47,7 @@
 	let selectedDays = $state<string[]>([]);
 	let startDate = $state('');
 	let endDate = $state('');
+	let isActive = $state(true);
 	let submitting = $state(false);
 
 	const isNewProgram = $derived(programSelection === NEW_PROGRAM_VALUE);
@@ -66,6 +68,7 @@
 					: [];
 			startDate = String(values?.startDate ?? '');
 			endDate = String(values?.endDate ?? '');
+			isActive = String(values?.isActive ?? 'true') !== 'false';
 			step = values ? 2 : 1;
 		}
 	});
@@ -109,7 +112,7 @@
 				{#if step === 1}
 					Paso 1 de 2 — Selecciona o crea el programa de referencia.
 				{:else}
-					Paso 2 de 2 — Define horario y vigencia de la clase.
+					Paso 2 de 2 — Define horario y estado de la clase.
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
@@ -236,18 +239,31 @@
 						{/if}
 					</FieldSet>
 
+					<Field orientation="horizontal">
+						<Switch
+							id="isActive-{formId}"
+							checked={isActive}
+							onCheckedChange={(checked) => (isActive = checked === true)}
+						/>
+						<div class="flex flex-col gap-1">
+							<FieldLabel for="isActive-{formId}">Clase activa</FieldLabel>
+							<FieldDescription>Las clases inactivas no aparecen en pagos ni en el dashboard de hoy.</FieldDescription>
+						</div>
+						<input type="hidden" name="isActive" value={String(isActive)} />
+					</Field>
+
 					<div class="grid gap-4 sm:grid-cols-2">
 						<Field data-invalid={errors.startDate ? true : undefined}>
-							<FieldLabel for="startDate-{formId}">Fecha de inicio</FieldLabel>
-							<Input id="startDate-{formId}" name="startDate" type="date" bind:value={startDate} required />
+							<FieldLabel for="startDate-{formId}">Fecha de inicio (opcional)</FieldLabel>
+							<Input id="startDate-{formId}" name="startDate" type="date" bind:value={startDate} />
 							{#if errors.startDate}
 								<FieldError>{errors.startDate}</FieldError>
 							{/if}
 						</Field>
 
 						<Field data-invalid={errors.endDate ? true : undefined}>
-							<FieldLabel for="endDate-{formId}">Fecha de término</FieldLabel>
-							<Input id="endDate-{formId}" name="endDate" type="date" bind:value={endDate} required />
+							<FieldLabel for="endDate-{formId}">Fecha de término (opcional)</FieldLabel>
+							<Input id="endDate-{formId}" name="endDate" type="date" bind:value={endDate} />
 							{#if errors.endDate}
 								<FieldError>{errors.endDate}</FieldError>
 							{/if}

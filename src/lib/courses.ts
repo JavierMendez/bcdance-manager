@@ -17,6 +17,7 @@ export type ClassScheduleFormValues = {
 	days: Weekday[];
 	startDate: string;
 	endDate: string;
+	isActive?: boolean;
 };
 
 /** @deprecated Use ClassScheduleFormValues for new code */
@@ -40,22 +41,33 @@ export function validateClassScheduleInput(data: ClassScheduleFormValues) {
 		errors.days = 'Selecciona al menos un día.';
 	}
 
-	if (!startDate) {
-		errors.startDate = 'La fecha de inicio es obligatoria.';
-	}
-
-	if (!endDate) {
-		errors.endDate = 'La fecha de término es obligatoria.';
-	}
-
 	if (startDate && endDate && startDate > endDate) {
 		errors.endDate = 'La fecha de término debe ser posterior a la de inicio.';
 	}
 
 	return {
 		errors,
-		values: { schedule, days, startDate, endDate }
+		values: {
+			schedule,
+			days,
+			startDate,
+			endDate,
+			isActive: data.isActive !== false
+		}
 	};
+}
+
+export function parseIsActiveFormValue(value: FormDataEntryValue | null, fallback = true) {
+	if (value === null || value === '') {
+		return fallback;
+	}
+
+	return String(value) === 'true';
+}
+
+export function parseOptionalDate(value: string) {
+	const trimmed = value.trim();
+	return trimmed === '' ? null : trimmed;
 }
 
 /** @deprecated Use validateProgramInput + validateClassScheduleInput */

@@ -11,6 +11,7 @@
 	} from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { WEEKDAYS, type ClassScheduleFormValues } from '$lib/courses.js';
 	import type { ClassGroup } from '$lib/groups.js';
@@ -18,8 +19,9 @@
 	import { createActionSubmitHandler } from '$lib/form-enhance.js';
 	import { enhance } from '$app/forms';
 
-	type ClassSettingsValues = ClassScheduleFormValues & {
+	type ClassSettingsValues = Omit<ClassScheduleFormValues, 'isActive'> & {
 		programId: string;
+		isActive?: boolean | string;
 	};
 
 	let {
@@ -43,6 +45,7 @@
 	let selectedDays = $state<string[]>([]);
 	let startDate = $state('');
 	let endDate = $state('');
+	let isActive = $state(true);
 	let submitting = $state(false);
 
 	const selectedProgram = $derived(
@@ -53,8 +56,9 @@
 		programId = values?.programId ?? String(classGroup.programId);
 		schedule = values?.schedule ?? classGroup.schedule;
 		selectedDays = values?.days ?? [...classGroup.days];
-		startDate = values?.startDate ?? classGroup.startDate;
-		endDate = values?.endDate ?? classGroup.endDate;
+		startDate = values?.startDate ?? classGroup.startDate ?? '';
+		endDate = values?.endDate ?? classGroup.endDate ?? '';
+		isActive = values ? String(values.isActive ?? 'true') !== 'false' : classGroup.isActive;
 	});
 
 	function toggleDay(day: string, checked: boolean) {
@@ -71,7 +75,7 @@
 	<Card.Header>
 		<Card.Title>Configuraciones</Card.Title>
 		<Card.Description>
-			Actualiza el programa de referencia, horario y vigencia de la clase.
+			Actualiza el programa de referencia, horario y estado de la clase.
 		</Card.Description>
 	</Card.Header>
 	<Card.Content>
@@ -145,15 +149,29 @@
 					{/if}
 				</FieldSet>
 
+				<Field orientation="horizontal">
+					<Switch
+						id="isActive-{formId}"
+						checked={isActive}
+						onCheckedChange={(checked) => (isActive = checked === true)}
+					/>
+					<div class="flex flex-col gap-1">
+						<FieldLabel for="isActive-{formId}">Clase activa</FieldLabel>
+						<FieldDescription>
+							Desactívala para ocultarla del dashboard de hoy y de los pagos nuevos.
+						</FieldDescription>
+					</div>
+					<input type="hidden" name="isActive" value={String(isActive)} />
+				</Field>
+
 				<div class="grid gap-4 sm:grid-cols-2">
 					<Field data-invalid={errors.startDate ? true : undefined}>
-						<FieldLabel for="startDate-{formId}">Fecha de inicio</FieldLabel>
+						<FieldLabel for="startDate-{formId}">Fecha de inicio (opcional)</FieldLabel>
 						<Input
 							id="startDate-{formId}"
 							name="startDate"
 							type="date"
 							bind:value={startDate}
-							required
 						/>
 						{#if errors.startDate}
 							<FieldError>{errors.startDate}</FieldError>
@@ -161,13 +179,12 @@
 					</Field>
 
 					<Field data-invalid={errors.endDate ? true : undefined}>
-						<FieldLabel for="endDate-{formId}">Fecha de término</FieldLabel>
+						<FieldLabel for="endDate-{formId}">Fecha de término (opcional)</FieldLabel>
 						<Input
 							id="endDate-{formId}"
 							name="endDate"
 							type="date"
 							bind:value={endDate}
-							required
 						/>
 						{#if errors.endDate}
 							<FieldError>{errors.endDate}</FieldError>

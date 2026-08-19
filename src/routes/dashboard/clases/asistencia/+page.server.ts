@@ -100,7 +100,8 @@ async function loadGroupContext(db: ReturnType<typeof getDb>, groupId: number) {
 			schedule: groups.schedule,
 			days: groups.days,
 			startDate: groups.startDate,
-			endDate: groups.endDate
+			endDate: groups.endDate,
+			isActive: groups.isActive
 		})
 		.from(groups)
 		.innerJoin(programs, eq(groups.programId, programs.id))
@@ -257,11 +258,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	const dropInPlans = serializeDropInPlans(planRows).filter((plan) => plan.planType === 'drop_in');
 	const sessionDropInPayments = buildSessionDropInPayments(sessionPaymentRows, attendanceByStudent);
-	const attendanceValidationError = validateClassAttendanceSession(
-		sessionDate,
-		classGroup.startDate,
-		classGroup.endDate
-	);
+	const attendanceValidationError = validateClassAttendanceSession(sessionDate, classGroup);
 	const attendanceEditable = attendanceValidationError === null;
 
 	return {
@@ -271,7 +268,8 @@ export const load: PageServerLoad = async ({ url }) => {
 			schedule: classGroup.schedule,
 			days: classGroup.days as Weekday[],
 			startDate: classGroup.startDate,
-			endDate: classGroup.endDate
+			endDate: classGroup.endDate,
+			isActive: classGroup.isActive
 		},
 		sessionDate,
 		attendanceEditable,
@@ -318,11 +316,7 @@ export const actions: Actions = {
 			return fail(404, { message: 'Clase no encontrada.' });
 		}
 
-		const attendanceValidationError = validateClassAttendanceSession(
-			sessionDate,
-			classGroup.startDate,
-			classGroup.endDate
-		);
+		const attendanceValidationError = validateClassAttendanceSession(sessionDate, classGroup);
 
 		if (attendanceValidationError) {
 			return fail(400, { message: attendanceValidationError });
@@ -547,11 +541,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const attendanceValidationError = validateClassAttendanceSession(
-			sessionDate,
-			classGroup.startDate,
-			classGroup.endDate
-		);
+		const attendanceValidationError = validateClassAttendanceSession(sessionDate, classGroup);
 
 		if (attendanceValidationError) {
 			return fail(400, {

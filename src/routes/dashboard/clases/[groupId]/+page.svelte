@@ -8,7 +8,6 @@
 	import { getPaymentStatusBadgeVariant } from '$lib/payments.js';
 	import { formatPrice } from '$lib/payment-plans.js';
 	import { formatPhone } from '$lib/phone.js';
-	import { formatCourseDays } from '$lib/courses.js';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import CalendarCheckIcon from '@lucide/svelte/icons/calendar-check';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -112,7 +111,7 @@
 				<Card.Header>
 					<Card.Description>Estado</Card.Description>
 					<Card.Title class="text-lg">
-						{classGroup.active ? 'Vigente' : 'Finalizada o próxima'}
+						{classGroup.active ? 'Activa' : 'Inactiva'}
 					</Card.Title>
 				</Card.Header>
 			</Card.Root>
@@ -132,7 +131,7 @@
 
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Horario y vigencia</Card.Title>
+				<Card.Title>Horario</Card.Title>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-3">
 				<div class="bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
@@ -140,7 +139,7 @@
 					<span>{classGroup.schedule}</span>
 				</div>
 				<p class="text-muted-foreground text-sm">
-					{formatCourseDays(classGroup.days)} · {formatClassMeta(classGroup)}
+					{formatClassMeta(classGroup)}
 				</p>
 			</Card.Content>
 		</Card.Root>

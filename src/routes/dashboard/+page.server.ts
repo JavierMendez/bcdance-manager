@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db/index.js';
 import { buildExpiringFullPassStudents, buildExpiringPaymentStudents, type TodayClassItem } from '$lib/dashboard.js';
-import { buildClassGroups, isClassActive } from '$lib/groups.js';
+import { buildClassGroups } from '$lib/groups.js';
 import { WEEKDAYS, type Weekday } from '$lib/courses.js';
 import { getWeekdayIndexInAppTimezone } from '$lib/locale.js';
 import {
@@ -51,6 +51,7 @@ export const load: PageServerLoad = async () => {
 				days: groups.days,
 				startDate: groups.startDate,
 				endDate: groups.endDate,
+				isActive: groups.isActive,
 				programName: programs.name,
 				programDescription: programs.description
 			})
@@ -123,16 +124,12 @@ export const load: PageServerLoad = async () => {
 		schedule: row.schedule,
 		days: row.days as Weekday[],
 		startDate: row.startDate,
-		endDate: row.endDate
+		endDate: row.endDate,
+		isActive: row.isActive
 	}));
 	const classGroups = buildClassGroups(serializedClasses, entitlementRowsForClasses, now);
 	const todayClasses: TodayClassItem[] = classGroups
-		.filter(
-			(classGroup) =>
-				classGroup.active &&
-				classGroup.days.includes(todayWeekday) &&
-				isClassActive(classGroup, now)
-		)
+		.filter((classGroup) => classGroup.active && classGroup.days.includes(todayWeekday))
 		.map((classGroup) => ({
 			id: classGroup.id,
 			name: classGroup.name,

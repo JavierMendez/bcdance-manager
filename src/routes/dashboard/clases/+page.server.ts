@@ -12,7 +12,7 @@ import {
 	type GroupsPageData,
 	type SerializedClassGroup
 } from '$lib/groups.js';
-import { validateClassScheduleInput, type Weekday } from '$lib/courses.js';
+import { validateClassScheduleInput, parseIsActiveFormValue, parseOptionalDate, type Weekday } from '$lib/courses.js';
 import { validateProgramInput } from '$lib/programs.js';
 import {
 	classAttendance,
@@ -31,8 +31,9 @@ function serializeClassGroup(row: {
 	programId: number;
 	schedule: string;
 	days: string[];
-	startDate: string;
-	endDate: string;
+	startDate: string | null;
+	endDate: string | null;
+	isActive: boolean;
 	programName: string;
 	programDescription: string;
 }): SerializedClassGroup {
@@ -44,7 +45,8 @@ function serializeClassGroup(row: {
 		schedule: row.schedule,
 		days: row.days as Weekday[],
 		startDate: row.startDate,
-		endDate: row.endDate
+		endDate: row.endDate,
+		isActive: row.isActive
 	};
 }
 
@@ -63,6 +65,7 @@ export const load: PageServerLoad = async () => {
 				days: groups.days,
 				startDate: groups.startDate,
 				endDate: groups.endDate,
+				isActive: groups.isActive,
 				programName: programs.name,
 				programDescription: programs.description
 			})
@@ -167,7 +170,8 @@ function parseClassCreationForm(formData: FormData) {
 		schedule: String(formData.get('schedule') ?? ''),
 		days: formData.getAll('days').map(String) as Weekday[],
 		startDate: String(formData.get('startDate') ?? ''),
-		endDate: String(formData.get('endDate') ?? '')
+		endDate: String(formData.get('endDate') ?? ''),
+		isActive: parseIsActiveFormValue(formData.get('isActive'))
 	});
 
 	const errors: Record<string, string> = {
@@ -244,8 +248,9 @@ export const actions: Actions = {
 					programId,
 					schedule: parsed.scheduleValues.schedule,
 					days: parsed.scheduleValues.days,
-					startDate: parsed.scheduleValues.startDate,
-					endDate: parsed.scheduleValues.endDate,
+					startDate: parseOptionalDate(parsed.scheduleValues.startDate),
+					endDate: parseOptionalDate(parsed.scheduleValues.endDate),
+					isActive: parsed.scheduleValues.isActive ?? true,
 					updatedAt: now
 				})
 				.returning();
@@ -265,7 +270,7 @@ export const actions: Actions = {
 
 		const classGroup: ClassGroup = {
 			...created,
-			active: true,
+			active: created.isActive,
 			enrolledCount: 0,
 			fullPassCount: 0,
 			dropInCount: 0,

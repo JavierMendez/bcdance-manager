@@ -77,30 +77,50 @@ export function getTodaySessionDate(now = new Date()) {
 	return getCalendarDateInAppTimezone(now);
 }
 
-export function isClassAttendanceEditable(endDate: string, now = new Date()) {
-	return getCalendarDateInAppTimezone(now) <= endDate;
+export function isClassAttendanceEditable(isActive: boolean) {
+	return isActive;
 }
 
 export function isSessionDateInClassRange(
 	sessionDate: string,
-	startDate: string,
-	endDate: string
+	startDate: string | null,
+	endDate: string | null
 ) {
-	return startDate <= sessionDate && sessionDate <= endDate;
+	if (startDate && sessionDate < startDate) {
+		return false;
+	}
+
+	if (endDate && sessionDate > endDate) {
+		return false;
+	}
+
+	return true;
 }
 
 export function validateClassAttendanceSession(
 	sessionDate: string,
-	startDate: string,
-	endDate: string,
-	now = new Date()
+	classGroup: {
+		isActive: boolean;
+		startDate: string | null;
+		endDate: string | null;
+	}
 ): string | null {
-	if (!isClassAttendanceEditable(endDate, now)) {
-		return `Esta clase finalizó el ${formatCourseDate(endDate)}. Ya no se puede registrar ni modificar asistencia.`;
+	if (!isClassAttendanceEditable(classGroup.isActive)) {
+		return 'Esta clase está desactivada. Ya no se puede registrar ni modificar asistencia.';
 	}
 
-	if (!isSessionDateInClassRange(sessionDate, startDate, endDate)) {
-		return `La fecha de sesión debe estar dentro del periodo de la clase (${formatCourseDate(startDate)} – ${formatCourseDate(endDate)}).`;
+	if (!isSessionDateInClassRange(sessionDate, classGroup.startDate, classGroup.endDate)) {
+		if (classGroup.startDate && classGroup.endDate) {
+			return `La fecha de sesión debe estar dentro del periodo de la clase (${formatCourseDate(classGroup.startDate)} – ${formatCourseDate(classGroup.endDate)}).`;
+		}
+
+		if (classGroup.startDate) {
+			return `La fecha de sesión no puede ser anterior al ${formatCourseDate(classGroup.startDate)}.`;
+		}
+
+		if (classGroup.endDate) {
+			return `La fecha de sesión no puede ser posterior al ${formatCourseDate(classGroup.endDate)}.`;
+		}
 	}
 
 	return null;

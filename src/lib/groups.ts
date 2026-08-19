@@ -16,8 +16,9 @@ export type SerializedClassGroup = {
 	description: string;
 	schedule: string;
 	days: Weekday[];
-	startDate: string;
-	endDate: string;
+	startDate: string | null;
+	endDate: string | null;
+	isActive: boolean;
 };
 
 /** @deprecated Use SerializedClassGroup */
@@ -81,12 +82,8 @@ type EntitlementRow = {
 	};
 };
 
-export function isClassActive(
-	classGroup: Pick<SerializedClassGroup, 'startDate' | 'endDate'>,
-	now = new Date()
-) {
-	const today = getCalendarDateInAppTimezone(now);
-	return classGroup.startDate <= today && today <= classGroup.endDate;
+export function isClassActive(classGroup: Pick<SerializedClassGroup, 'isActive'>) {
+	return classGroup.isActive;
 }
 
 /** @deprecated Use isClassActive */
@@ -338,7 +335,7 @@ export function buildClassGroups(
 
 		return {
 			...classGroup,
-			active: isClassActive(classGroup, now),
+			active: isClassActive(classGroup),
 			enrolledCount: monthlyStudentIds.size,
 			fullPassCount: 0,
 			dropInCount: 0,
@@ -386,7 +383,21 @@ export function countFullPassStudents(entitlements: EntitlementRow[], now = new 
 }
 
 export function formatClassMeta(classGroup: Pick<ClassGroup, 'days' | 'startDate' | 'endDate'>) {
-	return `${formatCourseDays(classGroup.days)} · ${formatCourseDate(classGroup.startDate)} – ${formatCourseDate(classGroup.endDate)}`;
+	const days = formatCourseDays(classGroup.days);
+
+	if (classGroup.startDate && classGroup.endDate) {
+		return `${days} · ${formatCourseDate(classGroup.startDate)} – ${formatCourseDate(classGroup.endDate)}`;
+	}
+
+	if (classGroup.startDate) {
+		return `${days} · Desde ${formatCourseDate(classGroup.startDate)}`;
+	}
+
+	if (classGroup.endDate) {
+		return `${days} · Hasta ${formatCourseDate(classGroup.endDate)}`;
+	}
+
+	return days;
 }
 
 /** @deprecated Use formatClassMeta */
@@ -478,7 +489,7 @@ export function attachSessionAttendanceCountsToGroups(
 }
 
 export function getEnrolledStudentIdsForClass(
-	classGroup: Pick<SerializedClassGroup, 'id' | 'startDate' | 'endDate'>,
+	classGroup: Pick<SerializedClassGroup, 'id'>,
 	entitlements: EntitlementRow[],
 	now = new Date()
 ): number[] {
@@ -489,8 +500,9 @@ export function getEnrolledStudentIdsForClass(
 		description: '',
 		schedule: '',
 		days: [],
-		startDate: classGroup.startDate,
-		endDate: classGroup.endDate
+		startDate: null,
+		endDate: null,
+		isActive: true
 	};
 
 	const [built] = buildClassGroups([placeholder], entitlements, now);

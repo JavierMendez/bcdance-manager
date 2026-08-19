@@ -256,8 +256,8 @@
 							id="sessionDate"
 							type="date"
 							bind:value={sessionDate}
-							min={data.course?.startDate}
-							max={data.course?.endDate}
+							min={data.course?.startDate ?? undefined}
+							max={data.course?.endDate ?? undefined}
 						/>
 					</Field.Field>
 					<Button type="button" onclick={applyFilters} disabled={!selectedCourseId}>

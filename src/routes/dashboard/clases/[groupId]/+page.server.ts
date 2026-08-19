@@ -6,7 +6,7 @@ import {
 	buildClassGroups,
 	type ClassGroup
 } from '$lib/groups.js';
-import { validateClassScheduleInput, type Weekday } from '$lib/courses.js';
+import { validateClassScheduleInput, parseIsActiveFormValue, parseOptionalDate, type Weekday } from '$lib/courses.js';
 import {
 	groups,
 	programs,
@@ -23,8 +23,9 @@ function serializeClassGroup(row: {
 	programId: number;
 	schedule: string;
 	days: string[];
-	startDate: string;
-	endDate: string;
+	startDate: string | null;
+	endDate: string | null;
+	isActive: boolean;
 	programName: string;
 	programDescription: string;
 }) {
@@ -36,7 +37,8 @@ function serializeClassGroup(row: {
 		schedule: row.schedule,
 		days: row.days as Weekday[],
 		startDate: row.startDate,
-		endDate: row.endDate
+		endDate: row.endDate,
+		isActive: row.isActive
 	};
 }
 
@@ -53,6 +55,7 @@ async function loadClassGroup(groupId: number) {
 				days: groups.days,
 				startDate: groups.startDate,
 				endDate: groups.endDate,
+				isActive: groups.isActive,
 				programName: programs.name,
 				programDescription: programs.description
 			})
@@ -129,7 +132,8 @@ function parseClassUpdateForm(formData: FormData) {
 		schedule: String(formData.get('schedule') ?? ''),
 		days: formData.getAll('days').map(String) as Weekday[],
 		startDate: String(formData.get('startDate') ?? ''),
-		endDate: String(formData.get('endDate') ?? '')
+		endDate: String(formData.get('endDate') ?? ''),
+		isActive: parseIsActiveFormValue(formData.get('isActive'), false)
 	});
 
 	const errors: Record<string, string> = { ...scheduleValidation.errors };
@@ -147,7 +151,8 @@ function parseClassUpdateForm(formData: FormData) {
 			schedule: String(formData.get('schedule') ?? ''),
 			days: formData.getAll('days').map(String) as Weekday[],
 			startDate: String(formData.get('startDate') ?? ''),
-			endDate: String(formData.get('endDate') ?? '')
+			endDate: String(formData.get('endDate') ?? ''),
+			isActive: String(parseIsActiveFormValue(formData.get('isActive'), false))
 		}
 	};
 }
@@ -210,8 +215,9 @@ export const actions: Actions = {
 				programId: parsed.programId,
 				schedule: parsed.scheduleValues.schedule,
 				days: parsed.scheduleValues.days,
-				startDate: parsed.scheduleValues.startDate,
-				endDate: parsed.scheduleValues.endDate,
+				startDate: parseOptionalDate(parsed.scheduleValues.startDate),
+				endDate: parseOptionalDate(parsed.scheduleValues.endDate),
+				isActive: parsed.scheduleValues.isActive ?? true,
 				updatedAt: now
 			})
 			.where(eq(groups.id, groupId))

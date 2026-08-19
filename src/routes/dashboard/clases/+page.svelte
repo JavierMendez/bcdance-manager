@@ -68,7 +68,7 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-2xl font-bold tracking-tight">Clases</h2>
 			<p class="text-muted-foreground text-sm">
-				Consulta las clases activas, sus horarios y vigencia.
+				Consulta las clases activas, sus horarios y estado.
 			</p>
 		</div>
 		<div class="flex flex-wrap gap-2">
@@ -132,7 +132,7 @@
 								<div class="flex flex-col gap-2">
 									<div class="flex flex-wrap items-center gap-2">
 										<Card.Title>{group.name}</Card.Title>
-										<Badge>Vigente</Badge>
+										<Badge>Activa</Badge>
 										<Badge variant="secondary">
 											<UsersIcon />
 											{formatMonthlyCount(group.enrolledCount)}
@@ -176,13 +176,20 @@
 
 		{#if inactiveGroups.length > 0}
 			<div class="flex flex-col gap-4">
-				<h3 class="text-lg font-semibold">Clases finalizadas</h3>
+				<h3 class="text-lg font-semibold">Clases inactivas</h3>
 				{#each inactiveGroups as group (group.id)}
-					<Card.Root class="opacity-90">
+					<Card.Root class="group relative opacity-90 transition-colors hover:bg-muted/40">
+						<a
+							href="/dashboard/clases/{group.id}"
+							class="absolute inset-0 z-0 rounded-xl"
+							aria-label="Ver detalle de {group.name}"
+						>
+							<span class="sr-only">Ver detalle de {group.name}</span>
+						</a>
 						<Card.Header>
 							<div class="flex flex-wrap items-center gap-2">
 								<Card.Title>{group.name}</Card.Title>
-								<Badge variant="secondary">Finalizado o próximo</Badge>
+								<Badge variant="secondary">Inactiva</Badge>
 								<Badge variant="outline">
 									<UsersIcon />
 									{formatMonthlyCount(group.enrolledCount)}

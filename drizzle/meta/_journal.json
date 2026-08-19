@@ -120,6 +120,13 @@
       "when": 1782771043289,
       "tag": "0016_add_additional_incomes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782772043289,
+      "tag": "0017_groups_is_active",
+      "breakpoints": true
     }
   ]
 }

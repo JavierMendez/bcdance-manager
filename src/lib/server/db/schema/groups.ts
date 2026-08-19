@@ -1,4 +1,4 @@
-import { date, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, date, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 import { programs } from './programs.js';
 
 export const groups = pgTable('groups', {
@@ -8,8 +8,9 @@ export const groups = pgTable('groups', {
 		.notNull(),
 	schedule: text('schedule').notNull(),
 	days: text('days').array().notNull(),
-	startDate: date('start_date').notNull(),
-	endDate: date('end_date').notNull(),
+	startDate: date('start_date'),
+	endDate: date('end_date'),
+	isActive: boolean('is_active').default(true).notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 });

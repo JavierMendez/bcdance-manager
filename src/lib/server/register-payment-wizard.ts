@@ -56,6 +56,7 @@ export async function loadClassOptions(db: ReturnType<typeof getDb>): Promise<Wi
 		})
 		.from(groups)
 		.innerJoin(programs, eq(groups.programId, programs.id))
+		.where(eq(groups.isActive, true))
 		.orderBy(programs.name);
 
 	return rows.map((row) => ({
@@ -71,9 +72,7 @@ export async function loadEnrolledStudentIds(
 	const [groupRow, entitlementRows] = await Promise.all([
 		db
 			.select({
-				id: groups.id,
-				startDate: groups.startDate,
-				endDate: groups.endDate
+				id: groups.id
 			})
 			.from(groups)
 			.where(eq(groups.id, groupId))
