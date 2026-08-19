@@ -20,6 +20,8 @@
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowLeftRightIcon from '@lucide/svelte/icons/arrow-left-right';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import BanknoteIcon from '@lucide/svelte/icons/banknote';
+	import LandmarkIcon from '@lucide/svelte/icons/landmark';
 	import MinusIcon from '@lucide/svelte/icons/minus';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -56,6 +58,7 @@
 	);
 
 	const summary = $derived(data.summary);
+	const lifetimeBalances = $derived(data.lifetimeBalances);
 	const hasChartData = $derived(
 		summary.chartDisplayPoints.some((point) => point.income > 0 || point.expenses > 0)
 	);
@@ -258,6 +261,44 @@
 		</Card.Content>
 	</Card.Root>
 
+	<div class="grid gap-4 sm:grid-cols-2">
+		<Card.Root class={lifetimeBalances.cash >= 0 ? 'border-emerald-500/30' : 'border-destructive/40'}>
+			<Card.Header>
+				<Card.Description class="flex items-center gap-2">
+					<BanknoteIcon />
+					Saldo en efectivo
+				</Card.Description>
+				<Card.Title
+					class={`text-3xl font-bold tabular-nums ${lifetimeBalances.cash >= 0 ? 'text-emerald-600' : 'text-destructive'}`}
+				>
+					{formatCashFlowCurrency(lifetimeBalances.cash)}
+				</Card.Title>
+			</Card.Header>
+			<Card.Footer>
+				<p class="text-muted-foreground text-sm">Acumulado, independiente del periodo</p>
+			</Card.Footer>
+		</Card.Root>
+
+		<Card.Root
+			class={lifetimeBalances.transfer >= 0 ? 'border-emerald-500/30' : 'border-destructive/40'}
+		>
+			<Card.Header>
+				<Card.Description class="flex items-center gap-2">
+					<LandmarkIcon />
+					Saldo en transferencias
+				</Card.Description>
+				<Card.Title
+					class={`text-3xl font-bold tabular-nums ${lifetimeBalances.transfer >= 0 ? 'text-emerald-600' : 'text-destructive'}`}
+				>
+					{formatCashFlowCurrency(lifetimeBalances.transfer)}
+				</Card.Title>
+			</Card.Header>
+			<Card.Footer>
+				<p class="text-muted-foreground text-sm">Acumulado, independiente del periodo</p>
+			</Card.Footer>
+		</Card.Root>
+	</div>
+
 	<div class="grid gap-4 sm:grid-cols-3">
 		<Card.Root>
 			<Card.Header>
@@ -415,51 +456,6 @@
 			</Card.Content>
 		</Card.Root>
 	</div>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Totales por método de pago</Card.Title>
-			<Card.Description>Ingresos, egresos y saldo neto por método en el periodo</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			{#if summary.paymentMethodBreakdown.length === 0}
-				<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
-					No hay movimientos en este periodo.
-				</div>
-			{:else}
-				<div class="rounded-xl border">
-					<Table.Root>
-						<Table.Header>
-							<Table.Row>
-								<Table.Head>Método</Table.Head>
-								<Table.Head class="text-right">Ingresos</Table.Head>
-								<Table.Head class="text-right">Egresos</Table.Head>
-								<Table.Head class="text-right">Neto</Table.Head>
-							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each summary.paymentMethodBreakdown as item (item.paymentMethod)}
-								<Table.Row>
-									<Table.Cell class="font-medium">{item.paymentMethod}</Table.Cell>
-									<Table.Cell class="text-right tabular-nums text-emerald-600">
-										{formatCashFlowCurrency(item.income)}
-									</Table.Cell>
-									<Table.Cell class="text-destructive text-right tabular-nums">
-										{formatCashFlowCurrency(item.expenses)}
-									</Table.Cell>
-									<Table.Cell
-										class={`text-right font-medium tabular-nums ${item.net >= 0 ? 'text-emerald-600' : 'text-destructive'}`}
-									>
-										{formatCashFlowCurrency(item.net)}
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-				</div>
-			{/if}
-		</Card.Content>
-	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>

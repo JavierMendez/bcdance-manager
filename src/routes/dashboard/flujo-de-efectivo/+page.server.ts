@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import {
 	buildCashFlowSummary,
+	buildLifetimeMethodBalances,
 	resolveCashFlowPeriod,
 	serializeCashFlowIncome,
 	validateAdditionalIncomeInput,
@@ -76,7 +77,14 @@ export const load: PageServerLoad = async ({ url }) => {
 	const db = getDb();
 	const period = resolveCashFlowPeriod(url.searchParams);
 
-	const [paymentIncomeRows, additionalIncomeRows, expenseRows] = await Promise.all([
+	const [
+		paymentIncomeRows,
+		additionalIncomeRows,
+		expenseRows,
+		lifetimePaymentTotals,
+		lifetimeAdditionalIncomeTotals,
+		lifetimeExpenseTotals
+	] = await Promise.all([
 		db
 			.select({
 				payment: payments,
@@ -95,7 +103,28 @@ export const load: PageServerLoad = async ({ url }) => {
 			.select()
 			.from(expenses)
 			.where(paidInPeriod(expenses.paidAt, period.from, period.to))
-			.orderBy(desc(expenses.paidAt))
+			.orderBy(desc(expenses.paidAt)),
+		db
+			.select({
+				paymentMethod: payments.paymentMethod,
+				total: sql<number>`coalesce(sum(${payments.totalAmount}), 0)::int`
+			})
+			.from(payments)
+			.groupBy(payments.paymentMethod),
+		db
+			.select({
+				paymentMethod: additionalIncomes.paymentMethod,
+				total: sql<number>`coalesce(sum(${additionalIncomes.amount}), 0)::int`
+			})
+			.from(additionalIncomes)
+			.groupBy(additionalIncomes.paymentMethod),
+		db
+			.select({
+				paymentMethod: expenses.paymentMethod,
+				total: sql<number>`coalesce(sum(${expenses.amount}), 0)::int`
+			})
+			.from(expenses)
+			.groupBy(expenses.paymentMethod)
 	]);
 
 	const summary = buildCashFlowSummary(
@@ -121,6 +150,11 @@ export const load: PageServerLoad = async ({ url }) => {
 	return {
 		period,
 		summary,
+		lifetimeBalances: buildLifetimeMethodBalances(
+			lifetimePaymentTotals,
+			lifetimeAdditionalIncomeTotals,
+			lifetimeExpenseTotals
+		),
 		paymentMethods: PAYMENT_METHODS
 	};
 };
