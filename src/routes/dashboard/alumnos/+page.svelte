@@ -1,13 +1,16 @@
 <script lang="ts">
 	import StudentDialog from '$lib/components/students/student-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import {
 		getPaymentStatusBadgeVariant,
-		PAYMENT_STATUS_LABELS
+		PAYMENT_STATUS_LABELS,
+		type PaymentStatus
 	} from '$lib/payments.js';
 	import { formatEnrollmentDate, formatPhone, type SerializedStudent } from '$lib/students.js';
 	import { enhance } from '$app/forms';
@@ -22,8 +25,42 @@
 	let editOpen = $state(false);
 	let editingStudent = $state<SerializedStudent | null>(null);
 	let optimisticStudents = $state<SerializedStudent[] | null>(null);
+	let searchQuery = $state('');
+	let activeFilter = $state<'all' | 'active' | 'inactive'>('all');
+	let paymentFilter = $state<'all' | PaymentStatus>('all');
 
 	const displayedStudents = $derived(optimisticStudents ?? students);
+	const filteredStudents = $derived.by(() => {
+		const query = searchQuery.trim().toLowerCase();
+		const queryDigits = query.replace(/\D/g, '');
+
+		return displayedStudents.filter((student) => {
+			if (activeFilter === 'active' && !student.active) {
+				return false;
+			}
+
+			if (activeFilter === 'inactive' && student.active) {
+				return false;
+			}
+
+			if (paymentFilter !== 'all' && student.paymentStatus !== paymentFilter) {
+				return false;
+			}
+
+			if (!query) {
+				return true;
+			}
+
+			const phone = formatPhone(student.phone).toLowerCase();
+			const digits = student.phone?.replace(/\D/g, '') ?? '';
+
+			return (
+				student.fullName.toLowerCase().includes(query) ||
+				phone.includes(query) ||
+				(queryDigits.length > 0 && digits.includes(queryDigits))
+			);
+		});
+	});
 	const totalStudentCount = $derived(displayedStudents.length);
 	const currentPaymentStudentCount = $derived(
 		displayedStudents.filter(
@@ -110,6 +147,45 @@
 		</Card.Root>
 	</div>
 
+	<Field.FieldGroup>
+		<div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+			<Field.Field class="min-w-56 flex-1">
+				<Field.FieldLabel for="student-search">Buscar</Field.FieldLabel>
+				<Input
+					id="student-search"
+					placeholder="Buscar por nombre o teléfono..."
+					bind:value={searchQuery}
+					aria-label="Buscar por nombre o teléfono"
+				/>
+			</Field.Field>
+			<Field.Field class="w-full sm:w-44">
+				<Field.FieldLabel for="student-active-filter">Estado</Field.FieldLabel>
+				<select
+					id="student-active-filter"
+					class="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3"
+					bind:value={activeFilter}
+				>
+					<option value="all">Todos</option>
+					<option value="active">Activo</option>
+					<option value="inactive">Inactivo</option>
+				</select>
+			</Field.Field>
+			<Field.Field class="w-full sm:w-44">
+				<Field.FieldLabel for="student-payment-filter">Pago</Field.FieldLabel>
+				<select
+					id="student-payment-filter"
+					class="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3"
+					bind:value={paymentFilter}
+				>
+					<option value="all">Todos</option>
+					<option value="vigente">{PAYMENT_STATUS_LABELS.vigente}</option>
+					<option value="por_vencer">{PAYMENT_STATUS_LABELS.por_vencer}</option>
+					<option value="vencido">{PAYMENT_STATUS_LABELS.vencido}</option>
+				</select>
+			</Field.Field>
+		</div>
+	</Field.FieldGroup>
+
 	<div class="rounded-xl border">
 		<Table.Root>
 			<Table.Header>
@@ -129,8 +205,14 @@
 							No hay alumnos registrados.
 						</Table.Cell>
 					</Table.Row>
+				{:else if filteredStudents.length === 0}
+					<Table.Row>
+						<Table.Cell colspan={6} class="text-muted-foreground h-24 text-center">
+							No se encontraron alumnos.
+						</Table.Cell>
+					</Table.Row>
 				{:else}
-					{#each displayedStudents as student (student.id)}
+					{#each filteredStudents as student (student.id)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{student.fullName}</Table.Cell>
 							<Table.Cell>{formatPhone(student.phone) || '—'}</Table.Cell>
