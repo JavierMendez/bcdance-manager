@@ -2,6 +2,8 @@ import { formatPrice } from '$lib/payment-plans.js';
 import { APP_LOCALE, getCalendarDateInAppTimezone } from '$lib/locale.js';
 import {
 	PAYMENT_STATUS_LABELS,
+	getEffectiveFullPassHours,
+	isFullPassEntitlementVigente,
 	isFullPassExpiringSoon,
 	resolvePaymentStatus,
 	type EntitlementSnapshot,
@@ -87,13 +89,32 @@ export function buildExpiringFullPassStudents(
 
 		const entitlements = entitlementsByStudent.get(student.id) ?? [];
 		const fullPass = entitlements
-			.filter(
-				(entry) =>
-					entry.active &&
-					entry.entitlementType === 'full_pass' &&
-					isFullPassExpiringSoon(entry.hoursRemaining, entry.hoursIncluded)
-			)
-			.sort((a, b) => (a.hoursRemaining ?? 0) - (b.hoursRemaining ?? 0))[0];
+			.filter((entry) => {
+				if (!entry.active || entry.entitlementType !== 'full_pass') {
+					return false;
+				}
+
+				const hoursRemaining = getEffectiveFullPassHours(
+					entry.hoursRemaining,
+					entry.startsAt,
+					entry.endsAt,
+					now
+				);
+
+				return (
+					isFullPassEntitlementVigente(
+						entry.hoursRemaining,
+						entry.startsAt,
+						entry.endsAt,
+						now
+					) && isFullPassExpiringSoon(hoursRemaining, entry.hoursIncluded)
+				);
+			})
+			.sort(
+				(a, b) =>
+					getEffectiveFullPassHours(a.hoursRemaining, a.startsAt, a.endsAt, now) -
+					getEffectiveFullPassHours(b.hoursRemaining, b.startsAt, b.endsAt, now)
+			)[0];
 
 		if (!fullPass) {
 			continue;
@@ -105,7 +126,12 @@ export function buildExpiringFullPassStudents(
 			phone: student.phone,
 			paymentStatus: 'por_vencer',
 			planName: fullPass.planName,
-			hoursRemaining: fullPass.hoursRemaining ?? 0
+			hoursRemaining: getEffectiveFullPassHours(
+				fullPass.hoursRemaining,
+				fullPass.startsAt,
+				fullPass.endsAt,
+				now
+			)
 		});
 	}
 

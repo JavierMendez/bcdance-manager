@@ -82,6 +82,7 @@ export async function loadEnrolledStudentIds(
 			.select({
 				entitlementType: studentEntitlements.entitlementType,
 				groupId: studentEntitlements.groupId,
+				startsAt: studentEntitlements.startsAt,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
@@ -295,6 +296,7 @@ export async function registerPaymentWizard(
 				paymentPlanId: fullPassPlan.id,
 				hoursRemaining: hoursGranted,
 				startsAt,
+				endsAt: addOneMonth(startsAt),
 				active: true
 			});
 		}

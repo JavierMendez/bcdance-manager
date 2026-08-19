@@ -4,6 +4,8 @@ import {
 	PAYMENT_EXPIRING_SOON_DAYS,
 	PAYMENT_STATUS_LABELS,
 	DROP_IN_GUEST_LABEL,
+	getEffectiveFullPassHours,
+	isFullPassEntitlementVigente,
 	type PaymentStatus
 } from '$lib/payments.js';
 
@@ -66,6 +68,7 @@ export type GroupsPageData = {
 type EntitlementRow = {
 	entitlementType: string;
 	groupId: number | null;
+	startsAt?: Date | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
@@ -113,7 +116,8 @@ export function resolveEntitlementStatus(
 	endsAt: Date | null,
 	hoursRemaining: number | null,
 	classesRemaining: number | null = null,
-	now = new Date()
+	now = new Date(),
+	startsAt: Date | null = null
 ): PaymentStatus {
 	if (entitlementType === 'monthly_plan') {
 		if (!endsAt || endsAt <= now) {
@@ -134,7 +138,9 @@ export function resolveEntitlementStatus(
 		return (classesRemaining ?? 0) > 0 ? 'vigente' : 'vencido';
 	}
 
-	return (hoursRemaining ?? 0) > 0 ? 'vigente' : 'vencido';
+	return getEffectiveFullPassHours(hoursRemaining, startsAt, endsAt, now) > 0
+		? 'vigente'
+		: 'vencido';
 }
 
 export function formatMonthlyCoverage(endsAt: Date | null) {
@@ -211,14 +217,19 @@ function buildMemberFromEntitlements(
 	if (fullPass) {
 		modalityParts.push('Full pass');
 		planParts.push(fullPass.planName);
-		coverageParts.push(formatFullPassCoverage(fullPass.hoursRemaining));
+		coverageParts.push(
+			formatFullPassCoverage(
+				getEffectiveFullPassHours(fullPass.hoursRemaining, fullPass.startsAt, fullPass.endsAt, now)
+			)
+		);
 
 		const fullPassStatus = resolveEntitlementStatus(
 			fullPass.entitlementType,
 			fullPass.endsAt,
 			fullPass.hoursRemaining,
 			fullPass.classesRemaining,
-			now
+			now,
+			fullPass.startsAt ?? null
 		);
 
 		if (fullPassStatus === 'vencido' || paymentStatus === 'vencido') {
@@ -252,7 +263,7 @@ export function buildClassGroups(
 			continue;
 		}
 
-		if ((row.hoursRemaining ?? 0) <= 0) {
+		if (!isFullPassEntitlementVigente(row.hoursRemaining, row.startsAt, row.endsAt, now)) {
 			continue;
 		}
 
@@ -359,11 +370,14 @@ export function countMonthlyEnrolledStudents(
 	return enrolledStudentIds.size;
 }
 
-export function countFullPassStudents(entitlements: EntitlementRow[]): number {
+export function countFullPassStudents(entitlements: EntitlementRow[], now = new Date()) {
 	const fullPassStudentIds = new Set<number>();
 
 	for (const row of entitlements) {
-		if (row.entitlementType === 'full_pass' && (row.hoursRemaining ?? 0) > 0) {
+		if (
+			row.entitlementType === 'full_pass' &&
+			isFullPassEntitlementVigente(row.hoursRemaining, row.startsAt, row.endsAt, now)
+		) {
 			fullPassStudentIds.add(row.student.id);
 		}
 	}

@@ -32,6 +32,7 @@ export const load: PageServerLoad = async () => {
 				studentId: studentEntitlements.studentId,
 				entitlementType: studentEntitlements.entitlementType,
 				groupId: studentEntitlements.groupId,
+				startsAt: studentEntitlements.startsAt,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
@@ -61,6 +62,7 @@ export const load: PageServerLoad = async () => {
 		number,
 		{
 			entitlementType: string;
+			startsAt: Date;
 			endsAt: Date | null;
 			hoursRemaining: number | null;
 			classesRemaining: number | null;
@@ -74,6 +76,7 @@ export const load: PageServerLoad = async () => {
 		const current = entitlementsByStudent.get(row.studentId) ?? [];
 		current.push({
 			entitlementType: row.entitlementType,
+			startsAt: row.startsAt,
 			endsAt: row.endsAt,
 			hoursRemaining: row.hoursRemaining,
 			classesRemaining: row.classesRemaining,
@@ -98,6 +101,7 @@ export const load: PageServerLoad = async () => {
 	const entitlementRowsForClasses = entitlementRows.map((row) => ({
 		entitlementType: row.entitlementType,
 		groupId: row.groupId,
+		startsAt: row.startsAt,
 		endsAt: row.endsAt,
 		hoursRemaining: row.hoursRemaining,
 		classesRemaining: row.classesRemaining,

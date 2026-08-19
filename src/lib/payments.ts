@@ -14,6 +14,48 @@ export function getFullPassExpiringSoonThreshold(
 	return Math.max(1, Math.ceil(total * (PAYMENT_EXPIRING_SOON_DAYS / 30)));
 }
 
+export function addOneMonth(date: Date) {
+	const next = new Date(date);
+	next.setMonth(next.getMonth() + 1);
+	return next;
+}
+
+export function resolveFullPassEndsAt(startsAt: Date | null | undefined, endsAt: Date | null) {
+	if (endsAt) {
+		return endsAt;
+	}
+
+	if (startsAt) {
+		return addOneMonth(startsAt);
+	}
+
+	return null;
+}
+
+export function getEffectiveFullPassHours(
+	hoursRemaining: number | null,
+	startsAt: Date | null | undefined,
+	endsAt: Date | null,
+	now = new Date()
+) {
+	const resolvedEndsAt = resolveFullPassEndsAt(startsAt, endsAt);
+
+	if (resolvedEndsAt && resolvedEndsAt <= now) {
+		return 0;
+	}
+
+	return hoursRemaining ?? 0;
+}
+
+export function isFullPassEntitlementVigente(
+	hoursRemaining: number | null,
+	startsAt: Date | null | undefined,
+	endsAt: Date | null,
+	now = new Date()
+) {
+	return getEffectiveFullPassHours(hoursRemaining, startsAt, endsAt, now) > 0;
+}
+
 export function isFullPassExpiringSoon(
 	hoursRemaining: number | null,
 	hoursIncluded: number | null = FULL_PASS_DEFAULT_HOURS
@@ -37,6 +79,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 
 export type EntitlementSnapshot = {
 	entitlementType: string;
+	startsAt?: Date | null;
 	endsAt: Date | null;
 	hoursRemaining: number | null;
 	classesRemaining: number | null;
@@ -49,9 +92,11 @@ function hasActiveDropIn(entitlements: EntitlementSnapshot[]) {
 	);
 }
 
-function hasActiveFullPass(entitlements: EntitlementSnapshot[]) {
+function hasActiveFullPass(entitlements: EntitlementSnapshot[], now = new Date()) {
 	return entitlements.some(
-		(entry) => entry.entitlementType === 'full_pass' && (entry.hoursRemaining ?? 0) > 0
+		(entry) =>
+			entry.entitlementType === 'full_pass' &&
+			isFullPassEntitlementVigente(entry.hoursRemaining, entry.startsAt, entry.endsAt, now)
 	);
 }
 
@@ -67,7 +112,7 @@ export function resolvePaymentStatus(
 		.sort((a, b) => b.getTime() - a.getTime());
 
 	const latestMonthlyEnd = monthlyEndsAt[0];
-	const activeFullPass = hasActiveFullPass(activeEntitlements);
+	const activeFullPass = hasActiveFullPass(activeEntitlements, now);
 	const activeDropIn = hasActiveDropIn(activeEntitlements);
 
 	if (latestMonthlyEnd) {
@@ -548,10 +593,4 @@ export function formatPaymentDate(isoDate: string) {
 		hour: '2-digit',
 		minute: '2-digit'
 	}).format(new Date(isoDate));
-}
-
-export function addOneMonth(date: Date) {
-	const next = new Date(date);
-	next.setMonth(next.getMonth() + 1);
-	return next;
 }

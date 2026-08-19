@@ -73,6 +73,7 @@ export const load: PageServerLoad = async () => {
 			.select({
 				entitlementType: studentEntitlements.entitlementType,
 				groupId: studentEntitlements.groupId,
+				startsAt: studentEntitlements.startsAt,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
@@ -140,7 +141,7 @@ export const load: PageServerLoad = async () => {
 		}),
 		activeClassCount: classGroups.filter((group) => group.active).length,
 		enrolledStudentCount: countMonthlyEnrolledStudents(entitlementRows),
-		fullPassStudentCount: countFullPassStudents(entitlementRows)
+		fullPassStudentCount: countFullPassStudents(entitlementRows, now)
 	};
 
 	return {

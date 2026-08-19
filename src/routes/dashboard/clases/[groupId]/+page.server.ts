@@ -64,6 +64,7 @@ async function loadClassGroup(groupId: number) {
 			.select({
 				entitlementType: studentEntitlements.entitlementType,
 				groupId: studentEntitlements.groupId,
+				startsAt: studentEntitlements.startsAt,
 				endsAt: studentEntitlements.endsAt,
 				hoursRemaining: studentEntitlements.hoursRemaining,
 				classesRemaining: studentEntitlements.classesRemaining,
