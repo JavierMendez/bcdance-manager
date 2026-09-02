@@ -35,6 +35,8 @@
 			return availableStudents;
 		}
 
+		const queryDigits = query.replace(/\D/g, '');
+
 		return availableStudents.filter((student) => {
 			const phone = formatPhone(student.phone).toLowerCase();
 			const digits = student.phone?.replace(/\D/g, '') ?? '';
@@ -42,7 +44,7 @@
 			return (
 				student.fullName.toLowerCase().includes(query) ||
 				phone.includes(query) ||
-				digits.includes(query.replace(/\D/g, ''))
+				(queryDigits.length > 0 && digits.includes(queryDigits))
 			);
 		});
 	});
