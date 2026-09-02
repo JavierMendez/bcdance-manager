@@ -237,6 +237,39 @@ export function parseAttendanceEntries(raw: string): {
 	}
 }
 
+function isPreferredFullPassEntitlement(
+	candidate: EntitlementSnapshot,
+	current: EntitlementSnapshot,
+	now: Date
+) {
+	const candidateHours = getEffectiveFullPassHours(
+		candidate.hoursRemaining,
+		candidate.startsAt,
+		candidate.endsAt,
+		now
+	);
+	const currentHours = getEffectiveFullPassHours(
+		current.hoursRemaining,
+		current.startsAt,
+		current.endsAt,
+		now
+	);
+
+	if (candidateHours !== currentHours) {
+		return candidateHours > currentHours;
+	}
+
+	const candidateEndsAt =
+		resolveFullPassEndsAt(candidate.startsAt, candidate.endsAt)?.getTime() ?? 0;
+	const currentEndsAt = resolveFullPassEndsAt(current.startsAt, current.endsAt)?.getTime() ?? 0;
+
+	if (candidateEndsAt !== currentEndsAt) {
+		return candidateEndsAt > currentEndsAt;
+	}
+
+	return candidate.id > current.id;
+}
+
 export function toFullPassAttendanceMember(
 	student: EligibleFullPassStudent,
 	currentStatus: AttendanceStatus | null = null
@@ -275,7 +308,7 @@ export function buildEligibleFullPassStudents(
 		}
 	}
 
-	const eligible: EligibleFullPassStudent[] = [];
+	const eligibleByStudent = new Map<number, EntitlementSnapshot>();
 
 	for (const row of entitlements) {
 		if (row.entitlementType !== 'full_pass') {
@@ -298,7 +331,15 @@ export function buildEligibleFullPassStudents(
 			continue;
 		}
 
-		eligible.push({
+		const current = eligibleByStudent.get(row.student.id);
+
+		if (!current || isPreferredFullPassEntitlement(row, current, now)) {
+			eligibleByStudent.set(row.student.id, row);
+		}
+	}
+
+	return [...eligibleByStudent.values()]
+		.map((row) => ({
 			studentId: row.student.id,
 			fullName: row.student.fullName,
 			phone: row.student.phone ?? null,
@@ -310,10 +351,8 @@ export function buildEligibleFullPassStudents(
 				now
 			),
 			planName: row.planName
-		});
-	}
-
-	return eligible.sort((a, b) => a.fullName.localeCompare(b.fullName, 'es'));
+		}))
+		.sort((a, b) => a.fullName.localeCompare(b.fullName, 'es'));
 }
 
 export function resolveAttendanceEntitlement(
@@ -386,7 +425,11 @@ export function buildAttendanceMembers(
 		}
 
 		if (row.entitlementType === 'full_pass') {
-			fullPassByStudent.set(row.student.id, row);
+			const current = fullPassByStudent.get(row.student.id);
+
+			if (!current || isPreferredFullPassEntitlement(row, current, now)) {
+				fullPassByStudent.set(row.student.id, row);
+			}
 		}
 	}
 

@@ -144,6 +144,10 @@
 	const attendanceEditable = $derived(data.attendanceEditable);
 
 	function addFullPassStudent(student: EligibleFullPassStudent) {
+		if (excludedFullPassStudentIds.has(student.studentId)) {
+			return;
+		}
+
 		const member = toFullPassAttendanceMember(student);
 		addedFullPassMembers = [...addedFullPassMembers, member];
 		clientAddedStudentIds = new Set([...clientAddedStudentIds, student.studentId]);
