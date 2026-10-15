@@ -1,0 +1,36 @@
+{
+  "name": "BC Dance Manager",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/app",
+
+  "forwardPorts": [
+    5173,
+    5432
+  ],
+
+  "portsAttributes": {
+    "5173": {
+      "label": "SvelteKit",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "svelte.svelte-vscode"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+
+  "shutdownAction": "stopCompose"
+}
