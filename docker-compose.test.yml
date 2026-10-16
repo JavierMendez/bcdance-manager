@@ -1,0 +1,18 @@
+services:
+  tests:
+    image: mcr.microsoft.com/playwright:v1.64.1-noble
+    init: true
+    ipc: host
+    working_dir: /app
+    volumes:
+      - .:/app
+      - test_node_modules:/app/node_modules
+      - test_svelte_kit:/app/.svelte-kit
+    command:
+      - sh
+      - -c
+      - npx --yes pnpm@9.15.9 install --frozen-lockfile && npx --yes pnpm@9.15.9 test
+
+volumes:
+  test_node_modules:
+  test_svelte_kit:
