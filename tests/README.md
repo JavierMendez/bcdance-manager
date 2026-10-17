@@ -44,3 +44,15 @@ Ejecuta solo estas pruebas con `pnpm test -- tests/unit/lib/dashboard.test.ts te
 Las consultas de base de datos se simulan; las funciones de transformación y los componentes de la página se ejecutan sin sustituirlos. No se requieren credenciales, sesiones reales ni una base de datos. Esta cobertura corresponde al inicio `/dashboard` y su control de acceso; los formularios de las subrutas tienen sus propios flujos.
 
 Las pruebas de integración que requieran base de datos deberán usar una base de datos exclusiva para pruebas.
+
+## Alumnos (`/dashboard/alumnos`)
+
+- `unit/lib/students.test.ts`: normalización de nombres y teléfonos, campos obligatorios, errores simultáneos, teléfono opcional, Unicode y fechas del formulario en la zona horaria de México.
+- `unit/routes/dashboard/alumnos/page.server.test.ts`: carga y serialización de alumnos, estados de pago y renovaciones, alta, edición, activación/desactivación, validación antes de consultar la base de datos, alumnos inexistentes y fallos de escritura.
+- `unit/routes/dashboard/alumnos/page.svelte.test.ts`: tabla y contadores, búsqueda por nombre y teléfono, filtros de estado y pago combinados, estados vacíos, escape de contenido, diálogos de alta y edición, cancelación, validación HTML, errores accesibles, bloqueo durante el envío, reintentos y actualización de la tabla tras guardar o activar un alumno.
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/students.test.ts tests/unit/routes/dashboard/alumnos`.
+
+Las consultas de base de datos y el transporte de `enhance` se simulan. Los componentes, sus callbacks de envío y la validación se ejecutan realmente en Chromium; los resultados del servidor se controlan desde las pruebas. No se verifica HTTP ni persistencia real y no se necesitan credenciales ni una base de datos.
+
+La ejecución de UI emite advertencias de Svelte `derived_inert` al cerrar y reabrir el diálogo. Las advertencias se mantienen visibles; las aserciones de reapertura, reinicio de campos y envío pasan.
