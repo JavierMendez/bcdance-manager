@@ -93,3 +93,16 @@ La cobertura incluye el historial, sus filtros y paginación, la página de regi
 Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/payments.test.ts tests/unit/routes/dashboard/pagos`.
 
 Los catálogos y resultados de consultas se simulan con `tests/helpers/database.ts`. Las condiciones SQL del historial se compilan con el dialecto real de Drizzle para verificar parámetros y filtros; no se ejecutan contra PostgreSQL. La UI usa componentes y callbacks reales con transporte de formularios y navegación simulados. Estas pruebas no verifican persistencia, rollback, concurrencia ni navegación HTTP real y no requieren credenciales.
+
+## Flujo de efectivo (`/dashboard/flujo-de-efectivo`)
+
+| Archivo | Cobertura |
+| --- | --- |
+| `unit/lib/cash-flow.test.ts` | Presets y rangos personalizados, fechas invertidas, años bisiestos y cambio de año, validación y normalización de ingresos/egresos, saldo por método, categorías, movimientos y puntos diarios/mensuales de gráfica. |
+| `unit/routes/dashboard/flujo-de-efectivo/page.server.test.ts` | Carga de pagos, ingresos adicionales y egresos; filtros SQL inclusivos en México; acumulados sin filtro de periodo; altas, eliminaciones, errores y redirección al día de un movimiento fuera del rango. |
+| `unit/routes/dashboard/flujo-de-efectivo/dialogs.svelte.test.ts` | `ExpenseDialog` y `AdditionalIncomeDialog`: campos requeridos, montos inválidos, categorías, cancelación, envío, errores, valores previos, bloqueo mientras guarda y reintentos. |
+| `unit/routes/dashboard/flujo-de-efectivo/page.svelte.test.ts` | Selector de periodo, saldos, contadores, superávit/déficit, gráfica real de LayerChart, categorías, movimientos con signos, avisos, apertura de diálogos y confirmación de eliminaciones. |
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/cash-flow.test.ts tests/unit/routes/dashboard/flujo-de-efectivo`.
+
+Los casos de borde incluyen pagos de cero pesos, IDs coincidentes entre fuentes de movimientos, categorías repetidas, fechas límite y cambios de día UTC/México, así como los umbrales de 14/15 y 45/46 días de la gráfica. Los componentes y transformaciones se ejecutan realmente; se simulan el transporte de formularios, navegación y consultas. La compilación SQL usa el dialecto real de Drizzle, sin conexión a PostgreSQL. No se verifican persistencia, restricciones SQL ni concurrencia. Las advertencias conocidas `derived_inert` de los diálogos pueden aparecer durante la ejecución.

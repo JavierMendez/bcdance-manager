@@ -7,6 +7,7 @@ export function queryRows(rows: unknown[]) {
 		from: vi.fn(() => query), where: vi.fn((_condition?: unknown) => query),
 		innerJoin: vi.fn(() => query), leftJoin: vi.fn(() => query),
 		orderBy: vi.fn(() => query), limit: vi.fn((_limit: number) => query), offset: vi.fn((_offset: number) => query),
+		groupBy: vi.fn((_column: unknown) => query),
 		returning: vi.fn(() => query)
 	});
 	return query;
@@ -16,12 +17,14 @@ export function mockDatabase(...selectRows: unknown[][]) {
 	for (const rows of selectRows) select.mockReturnValueOnce(queryRows(rows));
 	const insertValues = vi.fn((_values: unknown) => queryRows([{ id: 100 }]));
 	const set = vi.fn((_values: unknown) => queryRows([]));
+	const deleteWhere = vi.fn((_condition: unknown) => queryRows([]));
 	const db = {
 		select, insert: vi.fn((_table: unknown) => ({ values: insertValues })),
 		update: vi.fn((_table: unknown) => ({ set })),
+		delete: vi.fn((_table: unknown) => ({ where: deleteWhere })),
 		transaction: vi.fn(async (callback: (tx: unknown) => unknown): Promise<unknown> => callback(db))
 	};
-	return { db, select, insertValues, set };
+	return { db, select, insertValues, set, deleteWhere };
 }
 export function actionEvent(fields: Record<string, string | string[]>, groupId = '10') {
 	const body = new FormData();
