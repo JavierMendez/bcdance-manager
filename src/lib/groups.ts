@@ -21,9 +21,6 @@ export type SerializedClassGroup = {
 	isActive: boolean;
 };
 
-/** @deprecated Use SerializedClassGroup */
-export type SerializedCourse = SerializedClassGroup;
-
 export type GroupMember = {
 	studentId: number;
 	fullName: string;
@@ -44,9 +41,6 @@ export type ClassDropInPayment = {
 	paidAtLabel: string;
 };
 
-/** @deprecated Use ClassDropInPayment */
-export type CourseDropInPayment = ClassDropInPayment;
-
 export type ClassGroup = SerializedClassGroup & {
 	active: boolean;
 	enrolledCount: number;
@@ -55,9 +49,6 @@ export type ClassGroup = SerializedClassGroup & {
 	members: GroupMember[];
 	dropInPayments: ClassDropInPayment[];
 };
-
-/** @deprecated Use ClassGroup */
-export type CourseGroup = ClassGroup;
 
 export type GroupsPageData = {
 	groups: ClassGroup[];
@@ -85,9 +76,6 @@ type EntitlementRow = {
 export function isClassActive(classGroup: Pick<SerializedClassGroup, 'isActive'>) {
 	return classGroup.isActive;
 }
-
-/** @deprecated Use isClassActive */
-export const isCourseActive = isClassActive;
 
 export function isMonthlyEntitlementVigente(endsAt: Date | null, now = new Date()) {
 	return !!endsAt && endsAt > now;
@@ -344,9 +332,6 @@ export function buildClassGroups(
 		};
 	});
 }
-
-/** @deprecated Use buildClassGroups */
-export const buildCourseGroups = buildClassGroups;
 
 export function countMonthlyEnrolledStudents(
 	entitlements: EntitlementRow[],

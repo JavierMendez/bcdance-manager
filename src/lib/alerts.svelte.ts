@@ -60,32 +60,12 @@ class AlertsState {
 
 		this.items = this.items.filter((alert) => alert.id !== id);
 	}
-
-	clear() {
-		for (const timeout of this.#timeouts.values()) {
-			clearTimeout(timeout);
-		}
-		this.#timeouts.clear();
-		this.items = [];
-	}
 }
 
 export const alerts = new AlertsState();
 
-export function showAlert(options: ShowAlertOptions) {
-	return alerts.show(options);
-}
-
 export function showError(description: string, title?: string) {
 	return alerts.showError(description, title);
-}
-
-export function dismissAlert(id: string) {
-	alerts.dismiss(id);
-}
-
-export function clearAlerts() {
-	alerts.clear();
 }
 
 export function getActionErrorMessage(data: unknown): string | null {
