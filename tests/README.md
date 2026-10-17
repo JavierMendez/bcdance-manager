@@ -56,3 +56,24 @@ Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/students.test.ts test
 Las consultas de base de datos y el transporte de `enhance` se simulan. Los componentes, sus callbacks de envío y la validación se ejecutan realmente en Chromium; los resultados del servidor se controlan desde las pruebas. No se verifica HTTP ni persistencia real y no se necesitan credenciales ni una base de datos.
 
 La ejecución de UI emite advertencias de Svelte `derived_inert` al cerrar y reabrir el diálogo. Las advertencias se mantienen visibles; las aserciones de reapertura, reinicio de campos y envío pasan.
+
+## Clases (`/dashboard/clases`)
+
+La cobertura incluye las cuatro páginas del módulo y todos sus componentes de negocio. Los componentes compartidos de UI se ejercitan a través de estos flujos.
+
+| Archivo en `unit/routes/dashboard/clases/` | Cobertura |
+| --- | --- |
+| `pages.svelte.test.ts` | Listado activo/inactivo, contadores, estado vacío, alta desde el listado y las cinco pestañas del detalle: resumen, alumnos, asistencia, pagos y configuraciones. |
+| `class-forms.svelte.test.ts` | `ClassCreationWizard` y `ClassSettingsForm`: programa existente/nuevo, pasos, campos obligatorios, múltiples días, estado, fechas opcionales, errores y guardado. |
+| `enrollment.svelte.test.ts` | Página de inscripción y `PaymentWizard` en modo inscripción: alumno existente/nuevo, duplicados, planes ausentes, cuatro modalidades, clase fija y descuento del 100 %. |
+| `attendance-components.svelte.test.ts` | `AttendanceStatusToggle`, `FullPassStudentPicker` y `DropInQuickRegisterDialog`: marcas guardadas/pendientes, controles bloqueados, búsqueda y exclusión de alumnos, planes ausentes, descuentos, pago con/sin alumno y errores. |
+| `attendance-page.svelte.test.ts` | Selección de clase, lista vacía, marcas obligatorias, payload, pagos vencidos, sesiones bloqueadas, agregar/quitar full pass con confirmación y pagos de sesión. |
+| `page.server.test.ts` | Carga del listado/detalle, agrupación y contadores, creación con programa existente/nuevo, actualización, validación, 404 y fallos de transacción. |
+| `enrollment.server.test.ts` | Carga e inscripción con el helper real de pagos: cuatro modalidades, alumno nuevo, duplicados, datos inválidos y alumnos inexistentes. |
+| `attendance.server.test.ts` | Carga de sesión, validación, descuentos y restituciones de horas/créditos, guardado repetido sin doble descuento, pago rápido con/sin asistencia y errores de transacción. |
+
+Además, `unit/lib/classes.test.ts` cubre horarios, fechas, agrupación y contadores, y `unit/lib/attendance.test.ts` cubre parsing de entradas, vigencia histórica, fechas límite y selección de derechos.
+
+Ejecuta solo el módulo con `pnpm test -- tests/unit/lib/classes.test.ts tests/unit/lib/attendance.test.ts tests/unit/routes/dashboard/clases`.
+
+Los helpers en `tests/helpers/` comparten datos y simulan las consultas de Drizzle y el transporte de formularios. Las transformaciones, validadores, callbacks y componentes son reales. Las pruebas no verifican HTTP, restricciones SQL, concurrencia ni rollback de PostgreSQL. No requieren credenciales ni base de datos. Las advertencias `derived_inert` también pueden aparecer durante las pruebas de diálogos de este módulo.
