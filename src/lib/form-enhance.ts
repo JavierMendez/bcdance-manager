@@ -4,8 +4,6 @@ import type { SubmitFunction } from '@sveltejs/kit';
 type ActionSubmitOptions = {
 	setSubmitting?: (value: boolean) => void;
 	onSuccess?: (data: Record<string, unknown>) => void | Promise<void>;
-	onFailure?: (data: Record<string, unknown>) => void | Promise<void>;
-	showGlobalError?: boolean;
 	invalidateAll?: boolean;
 };
 
@@ -14,7 +12,6 @@ type DialogSubmitOptions = {
 	setOpen: (value: boolean) => void;
 	onSuccess?: (data: Record<string, unknown>) => void;
 	onClosed?: () => void;
-	showGlobalError?: boolean;
 };
 
 function getGlobalErrorMessage(data: unknown, includeFieldErrors: boolean) {
@@ -29,8 +26,6 @@ function getGlobalErrorMessage(data: unknown, includeFieldErrors: boolean) {
 export function createActionSubmitHandler({
 	setSubmitting,
 	onSuccess,
-	onFailure,
-	showGlobalError = true,
 	invalidateAll = false
 }: ActionSubmitOptions = {}): SubmitFunction {
 	return () => {
@@ -41,14 +36,10 @@ export function createActionSubmitHandler({
 				if (result.type === 'success') {
 					await onSuccess?.(result.data ?? {});
 				} else if (result.type === 'failure') {
-					const data = (result.data ?? {}) as Record<string, unknown>;
-					if (showGlobalError) {
-						const message = getGlobalErrorMessage(data, true);
-						if (message) {
-							showError(message);
-						}
+					const message = getGlobalErrorMessage(result.data, true);
+					if (message) {
+						showError(message);
 					}
-					await onFailure?.(data);
 				}
 
 				await update({ reset: false, invalidateAll });
@@ -63,8 +54,7 @@ export function createDialogSubmitHandler({
 	setSubmitting,
 	setOpen,
 	onSuccess,
-	onClosed,
-	showGlobalError = true
+	onClosed
 }: DialogSubmitOptions): SubmitFunction {
 	return () => {
 		setSubmitting(true);
@@ -80,7 +70,7 @@ export function createDialogSubmitHandler({
 					return;
 				}
 
-				if (result.type === 'failure' && showGlobalError) {
+				if (result.type === 'failure') {
 					const message = getGlobalErrorMessage(result.data, false);
 					if (message) {
 						showError(message);
