@@ -128,3 +128,14 @@ La ruta solo expone edición; el alta se realiza desde la creación de clases. E
 Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/payment-plans.test.ts tests/unit/routes/dashboard/configuraciones/planes-de-pago`.
 
 Se ejecutan los componentes, validadores y callbacks reales, simulando consultas y transporte de formularios. La prueba de precios históricos comprueba que la acción modifica únicamente `payment_plans`; no consulta ni modifica pagos existentes y no verifica persistencia contra PostgreSQL. Las advertencias conocidas `derived_inert` pueden aparecer al cerrar y reabrir diálogos.
+
+## Usuarios (`/dashboard/configuraciones/usuarios`)
+
+- `unit/routes/dashboard/configuraciones/usuarios/page.server.test.ts`: permiso exclusivo de administrador, roles ausentes/desconocidos, sesiones incompletas y fallos del padre.
+- `unit/routes/dashboard/configuraciones/usuarios/page.svelte.test.ts`: carga pendiente, consulta ordenada con límite de cien, listado, roles y estados, respuestas vacías, errores del proveedor, valores nulos, Unicode, nombres repetidos y escape de HTML.
+- `unit/routes/dashboard/configuraciones/usuarios/user-forms.svelte.test.ts`: alta con ambos roles, validación HTML y contraseña de ocho caracteres, edición exclusiva del nombre, cancelación, reinicio de campos, selección por ID, errores y reintentos, bloqueo durante envío y fallo de recarga tras guardar.
+- `unit/routes/dashboard/configuraciones/usuarios/user-actions.svelte.test.ts`: promoción/degradación, suspensión/reactivación, errores con/sin mensaje, conservación del estado, eliminación con confirmación, cancelación, bloqueo, reintentos y última cuenta eliminada.
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/routes/dashboard/configuraciones/usuarios`.
+
+Los componentes, eventos, validación HTML y diálogos compartidos se ejecutan realmente en Chromium. `tests/helpers/users.ts` simula únicamente las respuestas del cliente administrativo de Better Auth; no se crean cuentas ni se verifica el proveedor real, su autorización de endpoints o la persistencia. El control de acceso del servidor se prueba por separado. Las advertencias conocidas `derived_inert` pueden aparecer durante el cierre y reapertura de diálogos.
