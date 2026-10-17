@@ -106,3 +106,14 @@ Los catálogos y resultados de consultas se simulan con `tests/helpers/database.
 Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/cash-flow.test.ts tests/unit/routes/dashboard/flujo-de-efectivo`.
 
 Los casos de borde incluyen pagos de cero pesos, IDs coincidentes entre fuentes de movimientos, categorías repetidas, fechas límite y cambios de día UTC/México, así como los umbrales de 14/15 y 45/46 días de la gráfica. Los componentes y transformaciones se ejecutan realmente; se simulan el transporte de formularios, navegación y consultas. La compilación SQL usa el dialecto real de Drizzle, sin conexión a PostgreSQL. No se verifican persistencia, restricciones SQL ni concurrencia. Las advertencias conocidas `derived_inert` de los diálogos pueden aparecer durante la ejecución.
+
+## Programas (`/dashboard/configuraciones/programas`)
+
+- `unit/lib/programs.test.ts`: validación y normalización, campos vacíos o con espacios, errores simultáneos, Unicode, textos largos y valores de edición sin modificar el objeto original.
+- `unit/routes/dashboard/configuraciones/programas/page.server.test.ts`: acceso por rol, listado vacío y programas sin clases, consulta con `LEFT JOIN` y conteo de clases, edición, identificadores inválidos, campos ausentes, 404, errores de lectura/escritura y metadatos enviados por el cliente que no deben modificarse.
+- `unit/routes/dashboard/configuraciones/programas/program-dialog.svelte.test.ts`: precarga y campos requeridos, validación HTML, cancelación, errores accesibles, valores rechazados, envío real de callbacks, bloqueo durante guardado y reintentos.
+- `unit/routes/dashboard/configuraciones/programas/page.svelte.test.ts`: tabla, pluralización del uso en clases, escape de contenido, selección del programa, conservación de conteos al guardar, rechazo de respuestas ajenas al listado, errores y apertura automática del diálogo.
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/programs.test.ts tests/unit/routes/dashboard/configuraciones/programas`.
+
+La ruta solo expone edición; el alta se realiza desde la creación de clases. El modo `create` de `ProgramDialog` se comprueba únicamente como contrato visual del componente compartido, sin enviar a un endpoint inexistente. Los componentes, validadores y callbacks son reales; se simulan consultas y transporte de formularios. No se verifican persistencia ni restricciones SQL. La suite puede emitir las advertencias conocidas `derived_inert` durante el cierre y reapertura de diálogos.
