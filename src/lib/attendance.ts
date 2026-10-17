@@ -2,6 +2,7 @@ import { formatCourseDate } from '$lib/courses.js';
 import {
 	formatDropInCoverage,
 	formatFullPassCoverage,
+	formatMonthlyCoverage,
 	isMonthlyEntitlementVigenteForSession,
 	resolveEntitlementStatus
 } from '$lib/groups.js';
@@ -473,13 +474,7 @@ export function buildAttendanceMembers(
 			modalityLabel: isMonthly ? 'Plan mensual' : isDropIn ? 'Por clase' : 'Full pass',
 			planName: entitlement.planName,
 			coverageLabel: isMonthly
-				? entitlement.endsAt
-					? `Vence el ${new Intl.DateTimeFormat(APP_LOCALE, {
-							day: '2-digit',
-							month: 'long',
-							year: 'numeric'
-						}).format(entitlement.endsAt)}`
-					: 'Sin vigencia'
+				? formatMonthlyCoverage(entitlement.endsAt)
 				: isDropIn
 					? formatDropInCoverage(entitlement.classesRemaining)
 					: formatFullPassCoverage(hoursRemaining),
