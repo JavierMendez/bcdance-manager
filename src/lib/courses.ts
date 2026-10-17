@@ -20,12 +20,6 @@ export type ClassScheduleFormValues = {
 	isActive?: boolean;
 };
 
-/** @deprecated Use ClassScheduleFormValues for new code */
-export type CourseFormValues = ClassScheduleFormValues & {
-	name: string;
-	description: string;
-};
-
 export function validateClassScheduleInput(data: ClassScheduleFormValues) {
 	const errors: Record<string, string> = {};
 	const schedule = data.schedule.trim();
@@ -68,28 +62,6 @@ export function parseIsActiveFormValue(value: FormDataEntryValue | null, fallbac
 export function parseOptionalDate(value: string) {
 	const trimmed = value.trim();
 	return trimmed === '' ? null : trimmed;
-}
-
-/** @deprecated Use validateProgramInput + validateClassScheduleInput */
-export function validateCourseInput(data: CourseFormValues) {
-	const programErrors: Record<string, string> = {};
-	const name = data.name.trim();
-	const description = data.description.trim();
-
-	if (!name) {
-		programErrors.name = 'El nombre es obligatorio.';
-	}
-
-	if (!description) {
-		programErrors.description = 'La descripción es obligatoria.';
-	}
-
-	const { errors: scheduleErrors, values: scheduleValues } = validateClassScheduleInput(data);
-
-	return {
-		errors: { ...programErrors, ...scheduleErrors },
-		values: { name, description, ...scheduleValues }
-	};
 }
 
 export function formatCourseDate(dateValue: string) {
