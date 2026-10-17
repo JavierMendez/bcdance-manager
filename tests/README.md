@@ -117,3 +117,14 @@ Los casos de borde incluyen pagos de cero pesos, IDs coincidentes entre fuentes 
 Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/programs.test.ts tests/unit/routes/dashboard/configuraciones/programas`.
 
 La ruta solo expone edición; el alta se realiza desde la creación de clases. El modo `create` de `ProgramDialog` se comprueba únicamente como contrato visual del componente compartido, sin enviar a un endpoint inexistente. Los componentes, validadores y callbacks son reales; se simulan consultas y transporte de formularios. No se verifican persistencia ni restricciones SQL. La suite puede emitir las advertencias conocidas `derived_inert` durante el cierre y reapertura de diálogos.
+
+## Planes de pago (`/dashboard/configuraciones/planes-de-pago`)
+
+- `unit/lib/payment-plans.test.ts`: validación de los tres tipos, precios vacíos/no positivos/no finitos, periodicidades, clases opcionales, horas requeridas, crédito por defecto, limpieza de cantidades ajenas al tipo y valores/etiquetas del formulario.
+- `unit/routes/dashboard/configuraciones/planes-de-pago/page.server.test.ts`: acceso por rol, catálogo vacío, serialización, altas y ediciones de las tres modalidades, datos inválidos, identificadores ausentes, 404, fallos de lectura/escritura y actualización exclusiva del catálogo.
+- `unit/routes/dashboard/configuraciones/planes-de-pago/payment-plan-dialog.svelte.test.ts`: diálogo de alta y edición, campos dinámicos, periodicidad fija por clase, cantidades requeridas/opcionales, restricciones HTML, errores accesibles, cancelación, callbacks, bloqueo de envío y reintentos.
+- `unit/routes/dashboard/configuraciones/planes-de-pago/page.svelte.test.ts`: tabla y estado vacío, cantidades nulas, precios en MXN, escape de contenido, apertura del plan elegido, inserción y sustitución sin duplicados, errores del servidor y conservación del catálogo ante fallos.
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/payment-plans.test.ts tests/unit/routes/dashboard/configuraciones/planes-de-pago`.
+
+Se ejecutan los componentes, validadores y callbacks reales, simulando consultas y transporte de formularios. La prueba de precios históricos comprueba que la acción modifica únicamente `payment_plans`; no consulta ni modifica pagos existentes y no verifica persistencia contra PostgreSQL. Las advertencias conocidas `derived_inert` pueden aparecer al cerrar y reabrir diálogos.
