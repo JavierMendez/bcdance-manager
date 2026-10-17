@@ -4,9 +4,9 @@ import { vi } from 'vitest';
 // simula restricciones o rollback de Postgres; la lógica de negocio sigue siendo real.
 export function queryRows(rows: unknown[]) {
 	const query = Object.assign(Promise.resolve(rows), {
-		from: vi.fn(() => query), where: vi.fn(() => query),
+		from: vi.fn(() => query), where: vi.fn((_condition?: unknown) => query),
 		innerJoin: vi.fn(() => query), leftJoin: vi.fn(() => query),
-		orderBy: vi.fn(() => query), limit: vi.fn(() => query),
+		orderBy: vi.fn(() => query), limit: vi.fn((_limit: number) => query), offset: vi.fn((_offset: number) => query),
 		returning: vi.fn(() => query)
 	});
 	return query;

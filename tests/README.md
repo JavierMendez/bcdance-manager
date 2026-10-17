@@ -77,3 +77,19 @@ Además, `unit/lib/classes.test.ts` cubre horarios, fechas, agrupación y contad
 Ejecuta solo el módulo con `pnpm test -- tests/unit/lib/classes.test.ts tests/unit/lib/attendance.test.ts tests/unit/routes/dashboard/clases`.
 
 Los helpers en `tests/helpers/` comparten datos y simulan las consultas de Drizzle y el transporte de formularios. Las transformaciones, validadores, callbacks y componentes son reales. Las pruebas no verifican HTTP, restricciones SQL, concurrencia ni rollback de PostgreSQL. No requieren credenciales ni base de datos. Las advertencias `derived_inert` también pueden aparecer durante las pruebas de diálogos de este módulo.
+
+## Pagos (`/dashboard/pagos`)
+
+La cobertura incluye el historial, sus filtros y paginación, la página de registro y los cinco pasos de `PaymentWizard` en modo pago. El mismo asistente en modo inscripción se prueba en el módulo de clases.
+
+| Archivo | Cobertura |
+| --- | --- |
+| `unit/lib/payments.test.ts` | Parsing y serialización de filtros, páginas inválidas, rangos de fechas, descuentos límite, redondeo, totales de cuatro modalidades, validación de planes/alumnos y fecha de México. |
+| `unit/routes/dashboard/pagos/page.server.test.ts` | Serialización, pagos sin alumno, historial vacío, límites y desplazamiento de paginación, filtros compartidos entre conteo y listado, parámetros SQL, escape de comodines y fechas inclusivas en México. |
+| `unit/routes/dashboard/pagos/register.server.test.ts` | Catálogos, helper real de registro, cuatro modalidades, pago sin alumno, planes/alumnos inválidos, errores de transacción, descuentos, importes calculados desde catálogo, vigencias y horas/créditos contratados o por defecto. |
+| `unit/routes/dashboard/pagos/page.svelte.test.ts` | Tabla, importes y descuentos, estados vacíos, búsqueda con espera de 300 ms, filtros combinados, limpieza, paginación y escape de contenido. |
+| `unit/routes/dashboard/pagos/payment-wizard.svelte.test.ts` | Preselecciones por URL, avance/retroceso de cinco pasos, cuatro modalidades, pago sin alumno, catálogos vacíos, validación, confirmación, bloqueo durante envío, errores y reintentos. |
+
+Ejecuta solo este módulo con `pnpm test -- tests/unit/lib/payments.test.ts tests/unit/routes/dashboard/pagos`.
+
+Los catálogos y resultados de consultas se simulan con `tests/helpers/database.ts`. Las condiciones SQL del historial se compilan con el dialecto real de Drizzle para verificar parámetros y filtros; no se ejecutan contra PostgreSQL. La UI usa componentes y callbacks reales con transporte de formularios y navegación simulados. Estas pruebas no verifican persistencia, rollback, concurrencia ni navegación HTTP real y no requieren credenciales.
