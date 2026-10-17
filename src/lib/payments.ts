@@ -1,4 +1,4 @@
-import type { BillingPeriod } from '$lib/payment-plans.js';
+import type { SerializedPaymentPlan } from '$lib/payment-plans.js';
 import { APP_LOCALE, APP_TIMEZONE } from '$lib/locale.js';
 import { formatPrice } from '$lib/payment-plans.js';
 
@@ -171,16 +171,7 @@ export type WizardCourse = {
 	name: string;
 };
 
-export type WizardPaymentPlan = {
-	id: number;
-	name: string;
-	description: string;
-	planType: PlanType;
-	price: number;
-	billingPeriod: BillingPeriod;
-	classesIncluded: number | null;
-	hoursIncluded: number | null;
-};
+export type WizardPaymentPlan = SerializedPaymentPlan;
 
 export type PaymentWizardData = {
 	studentId: string;
