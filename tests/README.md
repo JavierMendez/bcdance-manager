@@ -33,4 +33,14 @@ El cliente de autenticación y `goto` se simulan para aislar el formulario. Esta
 
 La configuración está en `vitest.config.ts`, que comparte los plugins y alias de `vite.config.ts`. La ejecución falla si no se encuentran pruebas.
 
+## Dashboard (`/dashboard`)
+
+- `unit/routes/dashboard/page.svelte.test.ts`: tarjetas de pagos mensuales y full pass, clases del día, accesos rápidos, enlaces por alumno y grupo, estados vacíos, visibilidad de «Ver todos», pluralización, teléfonos ausentes y escape de contenido.
+- `unit/lib/dashboard.test.ts`: selección y orden de alumnos por urgencia, planes renovados, alumnos y derechos inactivos, vencimientos exactos, umbral de siete días, horas fraccionarias, pases agotados, límites y totales.
+- `unit/routes/dashboard/page.server.test.ts`: transformación de consultas en datos de la página, agrupación de derechos, inscripciones sin duplicados, clases activas por día de México, límites de ambas tarjetas y errores de base de datos.
+- `unit/routes/dashboard/layout.server.test.ts`: sesiones completas e incompletas, normalización de roles y rechazo de rutas restringidas.
+
+Ejecuta solo estas pruebas con `pnpm test -- tests/unit/lib/dashboard.test.ts tests/unit/routes/dashboard`.
+Las consultas de base de datos se simulan; las funciones de transformación y los componentes de la página se ejecutan sin sustituirlos. No se requieren credenciales, sesiones reales ni una base de datos. Esta cobertura corresponde al inicio `/dashboard` y su control de acceso; los formularios de las subrutas tienen sus propios flujos.
+
 Las pruebas de integración que requieran base de datos deberán usar una base de datos exclusiva para pruebas.
