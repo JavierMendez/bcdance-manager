@@ -3,6 +3,7 @@
 	import AdditionalIncomeDialog from '$lib/components/cash-flow/additional-income-dialog.svelte';
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -37,6 +38,7 @@
 	} = $props();
 
 	let selectedPreset = $state<CashFlowPeriodPreset>('this_month');
+	let searchQuery = $state('');
 	let fromDate = $state('');
 	let toDate = $state('');
 	let expenseDialogOpen = $state(false);
@@ -58,6 +60,20 @@
 	);
 
 	const summary = $derived(data.summary);
+	const filteredMovements = $derived.by(() => {
+		const query = searchQuery.trim().toLowerCase();
+		return summary.movements.filter((movement) =>
+			[
+				movement.paidAtLabel,
+				movement.type === 'income' ? 'Ingreso' : 'Egreso',
+				movement.label,
+				movement.detail,
+				movement.paymentMethod,
+				`${movement.type === 'income' ? '+' : '−'}${formatCashFlowCurrency(movement.amount)}`,
+				String(movement.amount)
+			].some((value) => value.toLowerCase().includes(query))
+		);
+	});
 	const lifetimeBalances = $derived(data.lifetimeBalances);
 	const hasChartData = $derived(
 		summary.chartDisplayPoints.some((point) => point.income > 0 || point.expenses > 0)
@@ -465,6 +481,17 @@
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
+			<Field.FieldGroup class="mb-4">
+				<Field.Field class="min-w-56 flex-1">
+					<Field.FieldLabel for="movement-search">Buscar</Field.FieldLabel>
+					<Input
+						id="movement-search"
+						placeholder="Buscar por fecha, tipo, concepto, detalle, método o monto..."
+						bind:value={searchQuery}
+						aria-label="Buscar por fecha, tipo, concepto, detalle, método o monto"
+					/>
+				</Field.Field>
+			</Field.FieldGroup>
 			{#if summary.movements.length === 0}
 				<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
 					No hay movimientos en este periodo. Registra pagos, ingresos adicionales o egresos para ver el flujo de efectivo.
@@ -484,7 +511,7 @@
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
-							{#each summary.movements as movement (movement.id)}
+							{#each filteredMovements as movement (movement.id)}
 								<Table.Row>
 									<Table.Cell class="text-sm">{movement.paidAtLabel}</Table.Cell>
 									<Table.Cell>
@@ -566,6 +593,12 @@
 												</ConfirmDialog>
 											</form>
 										{/if}
+									</Table.Cell>
+								</Table.Row>
+							{:else}
+								<Table.Row>
+									<Table.Cell colspan={7} class="text-muted-foreground h-24 text-center">
+										No se encontraron movimientos.
 									</Table.Cell>
 								</Table.Row>
 							{/each}

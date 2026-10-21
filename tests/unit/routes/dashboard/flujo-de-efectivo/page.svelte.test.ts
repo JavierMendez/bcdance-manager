@@ -19,6 +19,23 @@ beforeEach(() => { originalUrl = window.location.href; });
 afterEach(() => { history.replaceState({}, '', originalUrl); });
 
 describe('resumen, gráfica, categorías y tabla', () => {
+	it('busca por los seis campos, muestra cero coincidencias y restaura la tabla al limpiar', async () => {
+		const summary = populatedSummary();
+		const screen = await render(CashFlowPage, { data: dataWith({ summary }), form: null });
+		const search = screen.getByRole('textbox', { name: 'Buscar por fecha, tipo, concepto, detalle, método o monto', exact: true });
+		for (const query of [summary.movements[0].paidAtLabel, ' EGRESO ', 'RENTA DEL ESTUDIO', summary.movements[0].detail, 'efectivo', '−$300', '300']) {
+			await search.fill(query);
+			await expect.element(screen.getByRole('cell', { name: 'Renta del estudio', exact: true })).toBeVisible();
+			await expect.element(screen.getByRole('cell', { name: 'Venta de uniformes', exact: true })).not.toBeInTheDocument();
+		}
+		await search.fill('sin coincidencias');
+		await expect.element(screen.getByRole('cell', { name: 'No se encontraron movimientos.', exact: true })).toBeVisible();
+		await expect.element(screen.getByText('1 egreso registrado', { exact: true })).toBeVisible();
+		await search.fill('');
+		for (const name of ['Ana Pérez', 'Venta de uniformes', 'Renta del estudio']) {
+			await expect.element(screen.getByRole('cell', { name, exact: true })).toBeVisible();
+		}
+	});
 	it('muestra estados vacíos de gráfica, categorías y movimientos', async () => {
 		const screen = await render(CashFlowPage, { data: dataWith(), form: null });
 		await expect.element(screen.getByRole('heading', { name: 'Flujo de efectivo', exact: true })).toBeVisible();
