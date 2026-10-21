@@ -8,6 +8,7 @@ export function queryRows(rows: unknown[]) {
 		innerJoin: vi.fn(() => query), leftJoin: vi.fn(() => query),
 		orderBy: vi.fn(() => query), limit: vi.fn((_limit: number) => query), offset: vi.fn((_offset: number) => query),
 		groupBy: vi.fn((_column: unknown) => query),
+		for: vi.fn((_strength: string) => query),
 		returning: vi.fn(() => query)
 	});
 	return query;

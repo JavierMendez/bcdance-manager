@@ -148,3 +148,18 @@ Se ejecutan los componentes, validadores y callbacks reales, simulando consultas
 Ejecuta solo este módulo con `pnpm test -- tests/unit/routes/dashboard/configuraciones/usuarios`.
 
 Los componentes, eventos, validación HTML y diálogos compartidos se ejecutan realmente en Chromium. `tests/helpers/users.ts` simula únicamente las respuestas del cliente administrativo de Better Auth; no se crean cuentas ni se verifica el proveedor real, su autorización de endpoints o la persistencia. El control de acceso del servidor se prueba por separado. Las advertencias conocidas `derived_inert` pueden aparecer durante el cierre y reapertura de diálogos.
+
+## Concurrencia de asistencia con PostgreSQL real
+
+Ejecuta desde la raíz:
+
+```sh
+docker compose -p bcdance-balance-tests -f docker-compose.integration.yml run --rm integration-tests
+docker compose -p bcdance-balance-tests -f docker-compose.integration.yml down -v
+```
+
+Los tipos de Node 22 (`@types/node`) son una dependencia de desarrollo para el aislamiento por `AsyncLocalStorage`; no se añaden dependencias de ejecución. El servicio usa PostgreSQL 16 temporal sin puertos publicados, credenciales exclusivas de prueba y volúmenes separados para dependencias y SvelteKit. Instala el lockfile y aplica las migraciones existentes. El helper exige `ATTENDANCE_INTEGRATION_DATABASE_URL` con host `balance-db`, usuario `balance_test` y base `attendance_balance_test`; no utiliza `DATABASE_URL`. La limpieza de fixtures se limita a esa base. No ejecutar contra datos reales.
+
+`vitest.integration.config.ts` ejecuta exclusivamente `tests/integration/**/*.test.ts` en Node; la suite normal excluye esos archivos. Se invoca la acción real `actions.save`, con `getDb` inyectando Drizzle/PostgreSQL reales por actor. Las dos conexiones tienen PIDs distintos. Un wrapper de consulta pausa tras el SELECT real del primer actor, comprueba `pg_blocking_pids` y `pg_stat_activity` desde una tercera conexión y libera el primero solo después de observar la espera por bloqueo del segundo. Los timeouts solo limitan fallos; no deciden el intercalado.
+
+La prueba de reproducción omite únicamente `FOR UPDATE` mediante un wrapper de prueba y sincroniza ambas lecturas reales antes de escribir: dos marcas persisten, pero se pierde un descuento. El resto usa la acción con su bloqueo real y verifica saldos/marcas persistidos: sesiones distintas, misma marca, restitución única, última unidad, drop-in, mensualidad, rollback de lote y lotes en orden inverso. No verifica HTTP, autenticación ni reparación de datos históricos.

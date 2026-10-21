@@ -13,7 +13,7 @@ export default mergeConfig(
 						name: 'unit',
 						environment: 'node',
 						include: ['tests/**/*.{test,spec}.ts'],
-						exclude: [...configDefaults.exclude, 'tests/**/*.svelte.{test,spec}.ts']
+						exclude: [...configDefaults.exclude, 'tests/**/*.svelte.{test,spec}.ts', 'tests/integration/**']
 					}
 				},
 				{

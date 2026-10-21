@@ -324,7 +324,9 @@ export const actions: Actions = {
 
 		try {
 			await db.transaction(async (tx) => {
-				for (const entry of entries) {
+				// All balance writers must lock entitlements in the same order before
+				// reading balances or attendance, including monthly plans without a balance.
+				for (const entry of [...entries].sort((a, b) => a.entitlementId - b.entitlementId)) {
 					const [entitlement] = await tx
 						.select()
 						.from(studentEntitlements)
@@ -335,7 +337,8 @@ export const actions: Actions = {
 								eq(studentEntitlements.active, true)
 							)
 						)
-						.limit(1);
+						.limit(1)
+						.for('update');
 
 					if (!entitlement) {
 						throw new Error(`Vigencia no válida para el alumno ${entry.studentId}.`);
