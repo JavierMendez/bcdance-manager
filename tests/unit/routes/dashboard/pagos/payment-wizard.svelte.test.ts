@@ -26,7 +26,10 @@ async function renderWizard(props: Partial<ComponentProps<typeof PaymentWizard>>
 	return render(PaymentWizard, { ...wizardProps, ...props });
 }
 async function goToDetail(screen: Screen, type: PurchaseType = 'monthly_only', withStudent = true) {
-	if (withStudent) await screen.getByRole('combobox', { name: 'Alumno', exact: true }).selectOptions('1');
+	if (withStudent) {
+		await screen.getByRole('button', { name: 'Alumno', exact: true }).click();
+		await screen.getByRole('button', { name: new RegExp(wizardProps.students[0].fullName) }).click();
+	}
 	await next(screen);
 	await screen.getByRole('button', { name: purchaseMatchers[type] }).click();
 	await next(screen);
@@ -44,7 +47,7 @@ describe('página de registro y preselecciones por URL', () => {
 		pageState.url = new URL(`http://localhost/dashboard/pagos/registrar?studentId=1&${parameter}=10`);
 		const screen = await render(RegisterPage, { data: { ...authData, ...wizardProps }, form: null });
 		await expect.element(screen.getByRole('heading', { name: 'Registrar pago', exact: true })).toBeVisible();
-		await expect.element(screen.getByRole('combobox', { name: 'Alumno', exact: true })).toHaveValue('1');
+		await expect.element(screen.getByRole('button', { name: 'Alumno', exact: true })).toHaveTextContent(wizardProps.students[0].fullName);
 		await next(screen);
 		await next(screen);
 		await expect.element(screen.getByRole('combobox', { name: 'Clase', exact: true })).toHaveValue('10');
@@ -59,6 +62,29 @@ describe('página de registro y preselecciones por URL', () => {
 });
 
 describe('cinco pasos del asistente de pagos', () => {
+	it('busca alumnos por nombre y teléfono, selecciona y permite volver al pago ocasional', async () => {
+		const student = { ...wizardProps.students[0], phone: '5512345678' };
+		const screen = await renderWizard({ students: [student] });
+		const trigger = screen.getByRole('button', { name: 'Alumno', exact: true });
+		await trigger.click();
+		const search = screen.getByRole('textbox', { name: 'Buscar alumno', exact: true });
+		await expect.element(search).toHaveFocus();
+		await search.fill('sin coincidencias');
+		await expect.element(screen.getByText('No se encontraron alumnos.', { exact: true })).toBeVisible();
+		for (const query of [`  ${student.fullName.toUpperCase()}  `, student.phone?.replace(/\D/g, '') ?? '']) {
+			await search.fill(query);
+			await expect.element(screen.getByRole('button', { name: new RegExp(student.fullName) })).toBeVisible();
+		}
+		await screen.getByRole('button', { name: new RegExp(student.fullName) }).click();
+		await expect.element(search).not.toBeInTheDocument();
+		await expect.element(trigger).toHaveTextContent(student.fullName);
+		expect((screen.container.querySelector('input[name="studentId"]') as HTMLInputElement).value).toBe(String(student.id));
+		await trigger.click();
+		await expect.element(search).toHaveValue('');
+		await screen.getByRole('button', { name: 'Sin alumno — pago ocasional', exact: true }).click();
+		expect((screen.container.querySelector('input[name="studentId"]') as HTMLInputElement).value).toBe('');
+		await expect.element(trigger).toHaveTextContent('Sin alumno');
+	});
 	it('inicia en alumno, deshabilita Anterior y no envía al avanzar', async () => {
 		const screen = await renderWizard();
 		await expect.element(screen.getByRole('button', { name: 'Anterior', exact: true })).toBeDisabled();

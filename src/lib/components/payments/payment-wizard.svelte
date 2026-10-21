@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Popover as PopoverPrimitive } from 'bits-ui';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import {
 		FieldGroup,
@@ -93,6 +95,24 @@
 
 	let studentMode = $state<'existing' | 'new'>('existing');
 	let studentId = $state('');
+	let studentPickerOpen = $state(false);
+	let studentSearch = $state('');
+	const filteredStudents = $derived.by(() => {
+		const query = studentSearch.trim().toLowerCase();
+		const queryDigits = query.replace(/\D/g, '');
+		return students.filter((student) =>
+			student.fullName.toLowerCase().includes(query) ||
+			formatPhone(student.phone).toLowerCase().includes(query) ||
+			(queryDigits.length > 0 && (student.phone?.replace(/\D/g, '') ?? '').includes(queryDigits))
+		);
+	});
+
+	function selectPaymentStudent(id: string) {
+		studentId = id;
+		studentPickerOpen = false;
+		studentSearch = '';
+		clearStudentIdError();
+	}
 	let newFullName = $state('');
 	let newPhone = $state('');
 	let purchaseType = $state<PurchaseType>('monthly_only');
@@ -515,20 +535,41 @@
 							Opcional para pagos por clase. Déjalo vacío para registrar un pago ocasional sin
 							alumno.
 						</FieldDescription>
-						<select
-							id="studentId"
-							bind:value={studentId}
-							class="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
-						>
-							<option value="">{DROP_IN_GUEST_LABEL} — pago ocasional</option>
-							{#each students as student (student.id)}
-								<option value={String(student.id)}>
-									{student.phone
-										? `${student.fullName} — ${formatPhone(student.phone)}`
-										: student.fullName}
-								</option>
-							{/each}
-						</select>
+						<PopoverPrimitive.Root bind:open={studentPickerOpen}>
+							<PopoverPrimitive.Trigger>
+								{#snippet child({ props })}
+									<Button {...props} id="studentId" type="button" variant="outline"
+										class="w-full justify-between" aria-invalid={stepErrors.studentId ? true : undefined}>
+										<span class="truncate">{selectedStudent
+											? `${selectedStudent.fullName}${selectedStudent.phone ? ` — ${formatPhone(selectedStudent.phone)}` : ''}`
+											: `${DROP_IN_GUEST_LABEL} — pago ocasional`}</span>
+										<ChevronsUpDownIcon data-icon="inline-end" class="opacity-50" />
+									</Button>
+								{/snippet}
+							</PopoverPrimitive.Trigger>
+							<PopoverPrimitive.Portal>
+								<PopoverPrimitive.Content
+									class="bg-popover text-popover-foreground flex w-[var(--bits-popover-anchor-width)] flex-col gap-2 rounded-lg border p-2 shadow-md outline-hidden"
+									sideOffset={6} align="start">
+									<Input placeholder="Buscar por nombre o teléfono..." bind:value={studentSearch} aria-label="Buscar alumno" />
+									<div class="flex max-h-60 flex-col gap-0.5 overflow-y-auto">
+										<button type="button" class="hover:bg-accent hover:text-accent-foreground rounded-md px-2 py-2 text-left text-sm" onclick={() => selectPaymentStudent('')}>
+											{DROP_IN_GUEST_LABEL} — pago ocasional
+										</button>
+										{#each filteredStudents as student (student.id)}
+											<button type="button" class="hover:bg-accent hover:text-accent-foreground flex w-full flex-col items-start rounded-md px-2 py-2 text-left text-sm transition-colors" onclick={() => selectPaymentStudent(String(student.id))}>
+												<span class="font-medium">{student.fullName}</span>
+												{#if student.phone}<span class="text-muted-foreground text-xs">{formatPhone(student.phone)}</span>{/if}
+											</button>
+										{:else}
+											<p class="text-muted-foreground px-2 py-4 text-center text-sm">
+												{students.length === 0 ? 'No hay alumnos disponibles.' : 'No se encontraron alumnos.'}
+											</p>
+										{/each}
+									</div>
+								</PopoverPrimitive.Content>
+							</PopoverPrimitive.Portal>
+						</PopoverPrimitive.Root>
 						{#if stepErrors.studentId}
 							<FieldError>{stepErrors.studentId}</FieldError>
 						{/if}
