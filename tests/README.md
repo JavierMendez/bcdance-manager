@@ -1,5 +1,14 @@
 # Pruebas
 
+## Autorización HTTP con PostgreSQL aislado
+
+Desde la raíz, ejecuta `docker compose -p bcdance-auth-tests -f docker-compose.auth-test.yml run --rm auth-tests`.
+Instala el lockfile, aplica las migraciones a `auth-db/dashboard_auth_test` e inicia Vite dentro del contenedor sin publicar puertos. El runner `tests/http/dashboard-authorization.mjs` usa Playwright request y Better Auth con login real; no requiere navegadores ni dependencias nuevas. Su extensión `.mjs` lo mantiene fuera de los globs de Vitest.
+
+Comprueba lecturas anónimas, de usuario y administrador, navegación de datos, rutas codificadas, formularios normales y mejorados, y ausencia de cambios tras inserciones, actualizaciones y eliminaciones rechazadas. Las mismas operaciones del administrador deben persistir. Crea cuentas y fixtures exclusivos en esa base y rechaza cualquier otro host o nombre de base. No usa credenciales ni contenedores de desarrollo/producción. PostgreSQL usa almacenamiento temporal y las dependencias tienen volúmenes propios.
+
+Al terminar, elimina solo este stack con `docker compose -p bcdance-auth-tests -f docker-compose.auth-test.yml down -v`. No ejecutes el runner contra datos reales. Las sesiones incompletas, el no despacho del handler y los roles desconocidos se verifican en las pruebas unitarias del hook.
+
 Las pruebas se ejecutan con Vitest y se organizan en:
 
 - `unit/`: pruebas de funciones y lógica aislada. Refleja la estructura de `src/`, por ejemplo `unit/lib/phone.test.ts` para `src/lib/phone.ts`.
