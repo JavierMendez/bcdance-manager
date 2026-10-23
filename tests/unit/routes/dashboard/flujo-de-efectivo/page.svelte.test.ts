@@ -19,6 +19,19 @@ beforeEach(() => { originalUrl = window.location.href; });
 afterEach(() => { history.replaceState({}, '', originalUrl); });
 
 describe('resumen, gráfica, categorías y tabla', () => {
+	it('busca por tipo de movimiento sin buscar en otros campos', async () => {
+		const screen = await render(CashFlowPage, { data: dataWith({ summary: populatedSummary() }), form: null });
+		const search = screen.getByRole('textbox', { name: 'Buscar solo por tipo', exact: true });
+		await search.fill(' INGRESO ');
+		await expect.element(screen.getByRole('cell', { name: 'Ana Pérez', exact: true })).toBeVisible();
+		await expect.element(screen.getByRole('cell', { name: 'Venta de uniformes', exact: true })).toBeVisible();
+		await expect.element(screen.getByRole('cell', { name: 'Renta del estudio', exact: true })).not.toBeInTheDocument();
+		await search.fill('Renta');
+		await expect.element(screen.getByRole('cell', { name: 'No se encontraron movimientos.', exact: true })).toBeVisible();
+		await search.fill('Egreso');
+		await expect.element(screen.getByRole('cell', { name: 'Renta del estudio', exact: true })).toBeVisible();
+		await expect.element(screen.getByRole('cell', { name: 'Ana Pérez', exact: true })).not.toBeInTheDocument();
+	});
 	it('busca por los seis campos, muestra cero coincidencias y restaura la tabla al limpiar', async () => {
 		const summary = populatedSummary();
 		const screen = await render(CashFlowPage, { data: dataWith({ summary }), form: null });

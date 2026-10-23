@@ -39,6 +39,7 @@
 
 	let selectedPreset = $state<CashFlowPeriodPreset>('this_month');
 	let searchQuery = $state('');
+	let typeSearchQuery = $state('');
 	let fromDate = $state('');
 	let toDate = $state('');
 	let expenseDialogOpen = $state(false);
@@ -62,8 +63,9 @@
 	const summary = $derived(data.summary);
 	const filteredMovements = $derived.by(() => {
 		const query = searchQuery.trim().toLowerCase();
-		return summary.movements.filter((movement) =>
-			[
+		const typeQuery = typeSearchQuery.trim().toLowerCase();
+		return summary.movements.filter((movement) => {
+			const matchesSearch = [
 				movement.paidAtLabel,
 				movement.type === 'income' ? 'Ingreso' : 'Egreso',
 				movement.label,
@@ -71,8 +73,10 @@
 				movement.paymentMethod,
 				`${movement.type === 'income' ? '+' : '−'}${formatCashFlowCurrency(movement.amount)}`,
 				String(movement.amount)
-			].some((value) => value.toLowerCase().includes(query))
-		);
+			].some((value) => value.toLowerCase().includes(query));
+			const type = movement.type === 'income' ? 'Ingreso' : 'Egreso';
+			return matchesSearch && type.toLowerCase().includes(typeQuery);
+		});
 	});
 	const lifetimeBalances = $derived(data.lifetimeBalances);
 	const hasChartData = $derived(
@@ -482,15 +486,26 @@
 		</Card.Header>
 		<Card.Content>
 			<Field.FieldGroup class="mb-4">
-				<Field.Field class="min-w-56 flex-1">
-					<Field.FieldLabel for="movement-search">Buscar</Field.FieldLabel>
-					<Input
-						id="movement-search"
-						placeholder="Buscar por fecha, tipo, concepto, detalle, método o monto..."
-						bind:value={searchQuery}
-						aria-label="Buscar por fecha, tipo, concepto, detalle, método o monto"
-					/>
-				</Field.Field>
+				<div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+					<Field.Field class="min-w-56 flex-1">
+						<Field.FieldLabel for="movement-search">Buscar</Field.FieldLabel>
+						<Input
+							id="movement-search"
+							placeholder="Buscar por fecha, tipo, concepto, detalle, método o monto..."
+							bind:value={searchQuery}
+							aria-label="Buscar por fecha, tipo, concepto, detalle, método o monto"
+						/>
+					</Field.Field>
+					<Field.Field class="w-full sm:w-56">
+						<Field.FieldLabel for="movement-type-search">Tipo</Field.FieldLabel>
+						<Input
+							id="movement-type-search"
+							placeholder="Buscar por tipo..."
+							bind:value={typeSearchQuery}
+							aria-label="Buscar solo por tipo"
+						/>
+					</Field.Field>
+				</div>
 			</Field.FieldGroup>
 			{#if summary.movements.length === 0}
 				<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-10 text-center text-sm">
